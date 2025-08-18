@@ -1,0 +1,37 @@
+{
+  "nav": {
+    "home": "Home",
+    "product": "Product",
+    "pricing": "Pricing",
+    "contact": "Contact",
+    "download": "Download"
+  },
+  "hero": {
+    "title": "ProFit — Train smarter, grow stronger",
+    "subtitle": "Track workouts, follow plans, and see your progress in real time.",
+    "cta": "Get Started"
+  },
+  "product": {
+    "title": "Product & Services",
+    "subtitle": "Programs, tracking, and guided workouts with video demos."
+  },
+  "pricing": {
+    "title": "Pricing",
+    "subtitle": "Simple subscriptions for every goal.",
+    "monthly": "Monthly",
+    "yearly": "Yearly"
+  },
+  "contact": {
+    "title": "Contact",
+    "subtitle": "We’d love to hear from you.",
+    "email": "Email us"
+  },
+  "download": {
+    "title": "Download for Android",
+    "subtitle": "Get the app from Google Play.",
+    "cta": "Open Play Store"
+  },
+  "footer": {
+    "rights": "All rights reserved."
+  }
+}

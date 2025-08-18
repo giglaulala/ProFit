@@ -1,0 +1,487 @@
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
+import React, { useState } from "react";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import Colors from "../constants/Colors";
+
+export default function AuthScreen() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? "light"];
+
+  const [isLogin, setIsLogin] = useState(true);
+  const [selectedRole, setSelectedRole] = useState<
+    "trainer" | "trainee" | null
+  >(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    setIsLoading(true);
+
+    // Simulate login process
+    setTimeout(async () => {
+      try {
+        // Check if user has completed setup BEFORE saving new user data
+        const existingSetupData = await AsyncStorage.getItem("userSetupData");
+
+        // Save user data
+        const userData = {
+          email,
+          role: selectedRole,
+          isLoggedIn: true,
+          loginTime: new Date().toISOString(),
+          password,
+        };
+
+        await AsyncStorage.setItem("userData", JSON.stringify(userData));
+
+        // Skip setup for trainers or if setup already completed
+        if (selectedRole === "trainer") {
+          router.replace("/(tabs)");
+        } else if (existingSetupData) {
+          router.replace("/(tabs)");
+        } else {
+          router.replace("/setup");
+        }
+      } catch (error) {
+        console.error("Login error:", error);
+        Alert.alert("Error", "Login failed. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    }, 1500);
+  };
+
+  const handleRegister = async () => {
+    if (!email || !password || !confirmPassword || !selectedRole) {
+      Alert.alert("Error", "Please fill in all fields and select a role");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert("Error", "Passwords do not match");
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert("Error", "Password must be at least 6 characters long");
+      return;
+    }
+
+    setIsLoading(true);
+
+    // Simulate registration process
+    setTimeout(async () => {
+      try {
+        // Save user data
+        const userData = {
+          email,
+          role: selectedRole,
+          isLoggedIn: true,
+          registerTime: new Date().toISOString(),
+          password,
+        };
+
+        await AsyncStorage.setItem("userData", JSON.stringify(userData));
+
+        // Skip setup for trainers, show setup for trainees
+        if (selectedRole === "trainer") {
+          // Trainers go directly to main app
+          router.replace("/(tabs)");
+        } else {
+          // Trainees go to setup screen
+          router.replace("/setup");
+        }
+      } catch (error) {
+        console.error("Registration error:", error);
+        Alert.alert("Error", "Registration failed. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    }, 1500);
+  };
+
+  const renderRoleSelection = () => (
+    <View style={styles.roleContainer}>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>I am a:</Text>
+
+      <View style={styles.roleOptions}>
+        <TouchableOpacity
+          style={[
+            styles.roleCard,
+            {
+              backgroundColor:
+                selectedRole === "trainer" ? colors.primary : colors.lightGray,
+              borderColor:
+                selectedRole === "trainer" ? colors.primary : "transparent",
+              borderWidth: 2,
+            },
+          ]}
+          onPress={() => setSelectedRole("trainer")}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name="fitness"
+            size={32}
+            color={selectedRole === "trainer" ? colors.black : colors.primary}
+          />
+          <Text
+            style={[
+              styles.roleTitle,
+              {
+                color: selectedRole === "trainer" ? colors.black : colors.text,
+              },
+            ]}
+          >
+            Trainer
+          </Text>
+          <Text
+            style={[
+              styles.roleDescription,
+              {
+                color: selectedRole === "trainer" ? colors.black : colors.text,
+                opacity: 0.7,
+              },
+            ]}
+          >
+            I coach and guide others
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.roleCard,
+            {
+              backgroundColor:
+                selectedRole === "trainee" ? colors.primary : colors.lightGray,
+              borderColor:
+                selectedRole === "trainee" ? colors.primary : "transparent",
+              borderWidth: 2,
+            },
+          ]}
+          onPress={() => setSelectedRole("trainee")}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name="person"
+            size={32}
+            color={selectedRole === "trainee" ? colors.black : colors.secondary}
+          />
+          <Text
+            style={[
+              styles.roleTitle,
+              {
+                color: selectedRole === "trainee" ? colors.black : colors.text,
+              },
+            ]}
+          >
+            Trainee
+          </Text>
+          <Text
+            style={[
+              styles.roleDescription,
+              {
+                color: selectedRole === "trainee" ? colors.black : colors.text,
+                opacity: 0.7,
+              },
+            ]}
+          >
+            I want to get fit
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderForm = () => (
+    <View style={styles.formContainer}>
+      <View style={styles.inputGroup}>
+        <Text style={[styles.inputLabel, { color: colors.text }]}>Email</Text>
+        <TextInput
+          style={[
+            styles.textInput,
+            { backgroundColor: colors.lightGray, color: colors.text },
+          ]}
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Enter your email"
+          placeholderTextColor={colors.text}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={[styles.inputLabel, { color: colors.text }]}>
+          Password
+        </Text>
+        <TextInput
+          style={[
+            styles.textInput,
+            { backgroundColor: colors.lightGray, color: colors.text },
+          ]}
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Enter your password"
+          placeholderTextColor={colors.text}
+          secureTextEntry
+        />
+      </View>
+
+      {!isLogin && (
+        <View style={styles.inputGroup}>
+          <Text style={[styles.inputLabel, { color: colors.text }]}>
+            Confirm Password
+          </Text>
+          <TextInput
+            style={[
+              styles.textInput,
+              { backgroundColor: colors.lightGray, color: colors.text },
+            ]}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Confirm your password"
+            placeholderTextColor={colors.text}
+            secureTextEntry
+          />
+        </View>
+      )}
+    </View>
+  );
+
+  if (isLoading) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <View style={styles.loadingContainer}>
+          <Ionicons name="fitness" size={64} color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.text }]}>
+            {isLogin ? "Logging in..." : "Creating account..."}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Ionicons name="fitness" size={48} color={colors.primary} />
+          <Text style={[styles.appTitle, { color: colors.text }]}>ProFit</Text>
+          <Text style={[styles.appSubtitle, { color: colors.text }]}>
+            Your fitness journey starts here
+          </Text>
+        </View>
+
+        {/* Auth Toggle */}
+        <View style={styles.toggleContainer}>
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              { backgroundColor: isLogin ? colors.primary : colors.lightGray },
+            ]}
+            onPress={() => setIsLogin(true)}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                { color: isLogin ? colors.black : colors.text },
+              ]}
+            >
+              Login
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              { backgroundColor: !isLogin ? colors.primary : colors.lightGray },
+            ]}
+            onPress={() => setIsLogin(false)}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                { color: !isLogin ? colors.black : colors.text },
+              ]}
+            >
+              Register
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Role Selection */}
+        {renderRoleSelection()}
+
+        {/* Form */}
+        {renderForm()}
+
+        {/* Action Button */}
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: colors.primary }]}
+          onPress={isLogin ? handleLogin : handleRegister}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.actionButtonText, { color: colors.black }]}>
+            {isLogin ? "Login" : "Register"}
+          </Text>
+          <Ionicons name="arrow-forward" size={20} color={colors.black} />
+        </TouchableOpacity>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, { color: colors.text }]}>
+            {isLogin ? "Don't have an account? " : "Already have an account? "}
+          </Text>
+          <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
+            <Text style={[styles.footerLink, { color: colors.primary }]}>
+              {isLogin ? "Register" : "Login"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  header: {
+    alignItems: "center",
+    marginTop: 40,
+    marginBottom: 40,
+  },
+  appTitle: {
+    fontSize: 32,
+    fontWeight: "bold",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  appSubtitle: {
+    fontSize: 16,
+    opacity: 0.7,
+  },
+  toggleContainer: {
+    flexDirection: "row",
+    backgroundColor: "#2A2A2A",
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 30,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  toggleText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  roleContainer: {
+    marginBottom: 30,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 16,
+  },
+  roleOptions: {
+    gap: 12,
+  },
+  roleCard: {
+    padding: 20,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  roleTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  roleDescription: {
+    fontSize: 14,
+  },
+  formContainer: {
+    marginBottom: 30,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  textInput: {
+    padding: 15,
+    borderRadius: 12,
+    fontSize: 16,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 30,
+    gap: 8,
+  },
+  actionButtonText: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 20,
+  },
+  footerText: {
+    fontSize: 14,
+  },
+  footerLink: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: 18,
+    marginTop: 16,
+  },
+});
