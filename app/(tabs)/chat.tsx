@@ -1,11 +1,22 @@
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Animated } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from 'react-native';
-import { useState, useEffect, useRef } from 'react';
-import { router } from 'expo-router';
+import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
+import { router } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import Colors from '../../constants/Colors';
+import Colors from "../../constants/Colors";
 
 interface Message {
   id: string;
@@ -16,21 +27,21 @@ interface Message {
 
 export default function ChatScreen() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? "light"];
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: '1',
-      text: 'Hello! I\'m your ProFit AI assistant. How can I help you with your fitness journey today?',
+      id: "1",
+      text: "Hello! I'm your ProFit AI assistant. How can I help you with your fitness journey today?",
       isUser: false,
       timestamp: new Date(),
     },
   ]);
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const dotAnimations = useRef([
     new Animated.Value(1),
     new Animated.Value(1),
-    new Animated.Value(1)
+    new Animated.Value(1),
   ]).current;
 
   useEffect(() => {
@@ -52,18 +63,18 @@ export default function ChatScreen() {
                   useNativeDriver: true,
                 }),
               ])
-            )
+            ),
           ])
         );
         Animated.parallel(animations).start();
       };
       animateDots();
     } else {
-      dotAnimations.forEach(anim => anim.setValue(1));
+      dotAnimations.forEach((anim) => anim.setValue(1));
     }
   }, [isLoading]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (inputText.trim()) {
       const newMessage: Message = {
         id: Date.now().toString(),
@@ -71,55 +82,64 @@ export default function ChatScreen() {
         isUser: true,
         timestamp: new Date(),
       };
-      
-      setMessages(prev => [...prev, newMessage]);
-      setInputText('');
+
+      setMessages((prev) => [...prev, newMessage]);
+      setInputText("");
       setIsLoading(true);
-      
-      // Always return the same response for any question
-      setTimeout(() => {
-        const aiResponseText = `Great question! Here's a comprehensive plan to improve your soccer skills:
+      try {
+        const configuredBaseUrl =
+          (Constants?.expoConfig as any)?.extra?.apiBaseUrl ||
+          "http://localhost:3000";
+        const apiBaseUrl =
+          Platform.OS === "android" && configuredBaseUrl.includes("localhost")
+            ? configuredBaseUrl.replace("localhost", "10.0.2.2")
+            : configuredBaseUrl;
+        const response = await fetch(`${apiBaseUrl}/api/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are ProFit AI, a helpful fitness assistant. Be concise, practical, and safe.",
+              },
+              ...[...messages, newMessage].map((m) => ({
+                role: m.isUser ? "user" : "assistant",
+                content: m.text,
+              })),
+            ],
+          }),
+        });
 
-**Ball Handling (Dribbling & Control):**
-• Practice cone dribbling drills daily (15-20 minutes)
-• Use both feet equally - don't favor one side
-• Work on close control with small touches
-• Practice juggling to improve touch sensitivity
-• Do wall passes to improve first touch
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || "Failed to fetch AI response");
+        }
 
-**Kick Power & Technique:**
-• Strengthen your core and leg muscles
-• Practice proper shooting technique:
-  - Plant your non-kicking foot beside the ball
-  - Lock your ankle when striking
-  - Follow through toward your target
-• Do plyometric exercises (box jumps, lunges)
-• Work on hip flexibility and rotation
-• Practice with both feet
-
-**Recommended Exercises:**
-• Squats and lunges for leg strength
-• Deadlifts for overall power
-• Core exercises (planks, Russian twists)
-• Calf raises for explosive power
-• Agility ladder drills for footwork
-
-**Training Schedule:**
-• 3-4 times per week for ball skills
-• 2-3 strength training sessions
-• Include rest days for recovery
-
-Start with 30-minute sessions and gradually increase intensity. Consistency is key! 🏃‍♂️⚽`;
-        
+        const data = await response.json();
+        const aiText =
+          data?.content || "Sorry, I could not generate a response.";
         const aiResponse: Message = {
           id: (Date.now() + 1).toString(),
-          text: aiResponseText,
+          text: aiText,
           isUser: false,
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, aiResponse]);
+        setMessages((prev) => [...prev, aiResponse]);
+      } catch (error) {
+        const aiResponse: Message = {
+          id: (Date.now() + 1).toString(),
+          text: "There was an error contacting the AI. Please try again.",
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, aiResponse]);
+      } finally {
         setIsLoading(false);
-      }, 500);
+      }
     }
   };
 
@@ -153,11 +173,14 @@ Start with 30-minute sessions and gradually increase intensity. Consistency is k
           style={[
             styles.messageTime,
             {
-              color: message.isUser ? colors.black + '80' : colors.text + '80',
+              color: message.isUser ? colors.black + "80" : colors.text + "80",
             },
           ]}
         >
-          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {message.timestamp.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
         </Text>
       </View>
     </View>
@@ -174,35 +197,35 @@ Start with 30-minute sessions and gradually increase intensity. Consistency is k
         ]}
       >
         <View style={styles.loadingDots}>
-          <Animated.Text 
+          <Animated.Text
             style={[
-              styles.loadingDotText, 
-              { 
+              styles.loadingDotText,
+              {
                 color: colors.text,
-                opacity: dotAnimations[0]
-              }
+                opacity: dotAnimations[0],
+              },
             ]}
           >
             ●
           </Animated.Text>
-          <Animated.Text 
+          <Animated.Text
             style={[
-              styles.loadingDotText, 
-              { 
+              styles.loadingDotText,
+              {
                 color: colors.text,
-                opacity: dotAnimations[1]
-              }
+                opacity: dotAnimations[1],
+              },
             ]}
           >
             ●
           </Animated.Text>
-          <Animated.Text 
+          <Animated.Text
             style={[
-              styles.loadingDotText, 
-              { 
+              styles.loadingDotText,
+              {
                 color: colors.text,
-                opacity: dotAnimations[2]
-              }
+                opacity: dotAnimations[2],
+              },
             ]}
           >
             ●
@@ -213,27 +236,35 @@ Start with 30-minute sessions and gradually increase intensity. Consistency is k
   );
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1 }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.backButton}
               onPress={() => router.back()}
             >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </TouchableOpacity>
-            <View style={[styles.aiAvatar, { backgroundColor: colors.primary }]}>
+            <View
+              style={[styles.aiAvatar, { backgroundColor: colors.primary }]}
+            >
               <Ionicons name="fitness" size={24} color={colors.black} />
             </View>
             <View style={styles.headerInfo}>
-              <Text style={[styles.aiName, { color: colors.text }]}>ProFit AI</Text>
-              <Text style={[styles.aiStatus, { color: colors.primary }]}>Online</Text>
+              <Text style={[styles.aiName, { color: colors.text }]}>
+                ProFit AI
+              </Text>
+              <Text style={[styles.aiStatus, { color: colors.primary }]}>
+                Online
+              </Text>
             </View>
           </View>
         </View>
@@ -250,11 +281,13 @@ Start with 30-minute sessions and gradually increase intensity. Consistency is k
 
         {/* Input */}
         <View style={styles.inputContainer}>
-          <View style={[styles.inputWrapper, { backgroundColor: colors.lightGray }]}>
+          <View
+            style={[styles.inputWrapper, { backgroundColor: colors.lightGray }]}
+          >
             <TextInput
               style={[styles.textInput, { color: colors.text }]}
               placeholder="Type your message..."
-              placeholderTextColor={colors.text + '80'}
+              placeholderTextColor={colors.text + "80"}
               value={inputText}
               onChangeText={setInputText}
               multiline
@@ -263,7 +296,9 @@ Start with 30-minute sessions and gradually increase intensity. Consistency is k
               style={[
                 styles.sendButton,
                 {
-                  backgroundColor: inputText.trim() ? colors.primary : colors.darkGray,
+                  backgroundColor: inputText.trim()
+                    ? colors.primary
+                    : colors.darkGray,
                 },
               ]}
               onPress={handleSendMessage}
@@ -289,26 +324,26 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   aiAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   headerInfo: {
@@ -316,11 +351,11 @@ const styles = StyleSheet.create({
   },
   aiName: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   aiStatus: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   messagesContainer: {
     flex: 1,
@@ -333,13 +368,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   userMessage: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   aiMessage: {
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   messageBubble: {
-    maxWidth: '80%',
+    maxWidth: "80%",
     padding: 12,
     borderRadius: 16,
   },
@@ -350,16 +385,16 @@ const styles = StyleSheet.create({
   messageTime: {
     fontSize: 12,
     marginTop: 4,
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
   },
   inputContainer: {
     padding: 20,
     paddingTop: 10,
-    backgroundColor: 'rgba(18, 18, 18, 0.95)',
+    backgroundColor: "rgba(18, 18, 18, 0.95)",
   },
   inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
     borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 10,
@@ -374,16 +409,16 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginLeft: 10,
   },
   loadingDots: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   loadingDotText: {
     fontSize: 12,
     marginHorizontal: 2,
   },
-}); 
+});
