@@ -28,9 +28,11 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider messages={messages} locale={locale}>
-      <Navbar />
-      <main className="container py-10">{children}</main>
-      <Footer />
+      <div className="flex min-h-screen flex-1 flex-col">
+        <Navbar />
+        <main className="container flex-1 py-10">{children}</main>
+        <Footer />
+      </div>
     </NextIntlClientProvider>
   );
 }

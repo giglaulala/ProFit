@@ -561,6 +561,9 @@ video {
 .mt-4 {
   margin-top: 1rem;
 }
+.mt-auto {
+  margin-top: auto;
+}
 .flex {
   display: flex;
 }
@@ -582,6 +585,9 @@ video {
 .min-h-screen {
   min-height: 100vh;
 }
+.min-h-dvh {
+  min-height: 100dvh;
+}
 .w-full {
   width: 100%;
 }
@@ -589,8 +595,14 @@ video {
   width: -moz-max-content;
   width: max-content;
 }
+.flex-1 {
+  flex: 1 1 0%;
+}
 .grow {
   flex-grow: 1;
+}
+.flex-col {
+  flex-direction: column;
 }
 .items-center {
   align-items: center;
