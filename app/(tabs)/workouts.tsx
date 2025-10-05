@@ -1,160 +1,563 @@
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from 'react-native';
-import { useState } from 'react';
-import { BlurView } from 'expo-blur';
+import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import { useMemo, useState } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import Colors from '../../constants/Colors';
+import VideoPlayer from "../../components/VideoPlayer";
+import WorkoutTimer from "../../components/WorkoutTimer";
+import Colors from "../../constants/Colors";
+import {
+  getVideoByExerciseName,
+  workoutVideos,
+} from "../../constants/WorkoutVideos";
 
 export default function WorkoutsScreen() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const [searchQuery, setSearchQuery] = useState('');
+  const colors = Colors[colorScheme ?? "light"];
+  const [searchQuery, setSearchQuery] = useState("");
+  const [locationFilter, setLocationFilter] = useState<"gym" | "home">("gym");
+  const [mode, setMode] = useState<"body" | "category">("body");
+  const [selectedBody, setSelectedBody] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [expandedFlowIndex, setExpandedFlowIndex] = useState<number | null>(
+    null
+  );
+  const [videoVisible, setVideoVisible] = useState(false);
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+  const [timerVisible, setTimerVisible] = useState(false);
+  const [timerSpec, setTimerSpec] = useState<{
+    title: string;
+    duration: number;
+  }>({ title: "", duration: 0 });
 
-  const workoutCategories = [
-    { title: 'Strength Training', icon: 'barbell', count: 15, color: colors.primary },
-    { title: 'Cardio', icon: 'heart', count: 12, color: colors.secondary },
-    { title: 'Yoga & Stretching', icon: 'body', count: 8, color: colors.accent },
-    { title: 'HIIT', icon: 'flash', count: 10, color: colors.darkGreen },
-  ];
+  const bodyParts = useMemo(
+    () => [
+      { key: "chest", title: "Chest", icon: "body", color: colors.primary },
+      { key: "back", title: "Back", icon: "barbell", color: colors.secondary },
+      {
+        key: "shoulders",
+        title: "Shoulders",
+        icon: "fitness",
+        color: colors.accent,
+      },
+      { key: "legs", title: "Legs", icon: "walk", color: colors.darkGreen },
+      { key: "core", title: "Core", icon: "trail-sign", color: colors.blue },
+    ],
+    [colors]
+  );
 
-  const popularWorkouts = [
-    {
-      title: 'Full Body Blast',
-      duration: '45 min',
-      difficulty: 'Intermediate',
-      calories: '350',
-      exercises: 12,
-      color: colors.primary,
-    },
-    {
-      title: 'Core Crusher',
-      duration: '30 min',
-      difficulty: 'Beginner',
-      calories: '250',
-      exercises: 8,
-      color: colors.secondary,
-    },
-    {
-      title: 'Cardio Kickboxing',
-      duration: '40 min',
-      difficulty: 'Advanced',
-      calories: '400',
-      exercises: 15,
-      color: colors.accent,
-    },
-    {
-      title: 'Yoga Flow',
-      duration: '60 min',
-      difficulty: 'Beginner',
-      calories: '200',
-      exercises: 20,
-      color: colors.darkGreen,
-    },
-  ];
+  const categories = useMemo(
+    () => [
+      {
+        key: "strength",
+        title: "Strength",
+        icon: "barbell",
+        color: colors.primary,
+      },
+      {
+        key: "cardio",
+        title: "Cardio",
+        icon: "heart",
+        color: colors.secondary,
+      },
+      { key: "hiit", title: "HIIT", icon: "flash", color: colors.accent },
+      { key: "yoga", title: "Yoga", icon: "leaf", color: colors.darkGreen },
+    ],
+    [colors]
+  );
+
+  // Simple mapping of videos by body part
+  const videosByBody: Record<string, string[]> = useMemo(
+    () => ({
+      chest: ["bench-press", "dumbbell-fly", "push-ups", "incline-press"],
+      back: ["pull-ups", "bent-over-rows", "lat-pulldowns"],
+      shoulders: ["military-press", "lateral-raises", "front-raises"],
+      legs: ["squats", "lunges", "deadlifts", "calf-raises"],
+      core: ["push-ups", "plank"].filter(
+        (id) => workoutVideos[id as keyof typeof workoutVideos]
+      ),
+    }),
+    []
+  );
+
+  // Simple mapping of videos by category
+  const videosByCategory: Record<string, string[]> = useMemo(
+    () => ({
+      strength: [
+        "bench-press",
+        "dumbbell-fly",
+        "deadlifts",
+        "lat-pulldowns",
+        "military-press",
+        "squats",
+        "bent-over-rows",
+      ],
+      cardio: ["running", "cycling", "jump-rope"],
+      hiit: ["jump-rope", "push-ups", "lunges"],
+      yoga: [],
+    }),
+    []
+  );
+
+  // Simple mapping of Gym vs Home
+  const locationAllowed: Record<"gym" | "home", Set<string>> = useMemo(
+    () => ({
+      gym: new Set([
+        "bench-press",
+        "dumbbell-fly",
+        "incline-press",
+        "deadlifts",
+        "lat-pulldowns",
+        "military-press",
+        "bent-over-rows",
+        "cycling",
+      ]),
+      home: new Set([
+        "push-ups",
+        "squats",
+        "lunges",
+        "jump-rope",
+        "running",
+        "calf-raises",
+      ]),
+    }),
+    []
+  );
+
+  const flows = useMemo(
+    () => [
+      {
+        title: "Popular: Full Body Starter",
+        color: colors.primary,
+        steps: [
+          { name: "Jump Rope", duration: 60 },
+          { name: "Push-ups", duration: 45 },
+          { name: "Squats", duration: 60 },
+          { name: "Lunges", duration: 45 },
+        ],
+      },
+      {
+        title: "Popular: Upper Body Strength",
+        color: colors.secondary,
+        steps: [
+          { name: "Bench Press", duration: 60 },
+          { name: "Dumbbell Fly", duration: 45 },
+          { name: "Military Press", duration: 60 },
+          { name: "Lateral Raises", duration: 45 },
+        ],
+      },
+      {
+        title: "Popular: Cardio Focus",
+        color: colors.accent,
+        steps: [
+          { name: "Running", duration: 120 },
+          { name: "Jump Rope", duration: 60 },
+          { name: "Cycling", duration: 120 },
+        ],
+      },
+    ],
+    [colors]
+  );
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    // Here you can implement search functionality
-    console.log('Searching workouts for:', query);
   };
 
-  const filteredWorkouts = popularWorkouts.filter(workout =>
-    workout.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    workout.difficulty.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredBodies = bodyParts.filter((b) =>
+    b.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredCategories = workoutCategories.filter(category =>
-    category.title.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCategories = categories.filter((c) =>
+    c.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const renderWorkoutCard = ({ item, index }: { item: any; index: number }) => (
-    <TouchableOpacity
-      style={[styles.workoutCard, { backgroundColor: colors.lightGray }]}
-      activeOpacity={0.7}
-    >
-      <View style={styles.workoutHeader}>
-        <View style={[styles.workoutIcon, { backgroundColor: item.color }]}>
-          <Ionicons name="fitness" size={24} color={colors.black} />
-        </View>
-        <View style={styles.workoutInfo}>
-          <Text style={[styles.workoutTitle, { color: colors.text }]}>{item.title}</Text>
-          <Text style={[styles.workoutSubtitle, { color: colors.text }]}>
-            {item.duration} • {item.difficulty}
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={colors.text} />
-      </View>
-      <View style={styles.workoutStats}>
-        <View style={styles.stat}>
-          <Ionicons name="flame" size={16} color={colors.primary} />
-          <Text style={[styles.statText, { color: colors.text }]}>{item.calories} cal</Text>
-        </View>
-        <View style={styles.stat}>
-          <Ionicons name="list" size={16} color={colors.secondary} />
-          <Text style={[styles.statText, { color: colors.text }]}>{item.exercises} exercises</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
+  const currentVideoIds = useMemo(() => {
+    const base =
+      mode === "body"
+        ? selectedBody
+          ? videosByBody[selectedBody] || []
+          : []
+        : selectedCategory
+        ? videosByCategory[selectedCategory] || []
+        : [];
+    const allowed = locationAllowed[locationFilter];
+    return base.filter((id) => allowed.size === 0 || allowed.has(id));
+  }, [mode, selectedBody, selectedCategory, locationFilter]);
+
+  const currentVideos = useMemo(
+    () =>
+      currentVideoIds
+        .map((id) => workoutVideos[id as keyof typeof workoutVideos])
+        .filter(Boolean)
+        .filter((v) =>
+          !searchQuery
+            ? true
+            : v.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              v.description.toLowerCase().includes(searchQuery.toLowerCase())
+        ),
+    [currentVideoIds, searchQuery]
   );
+
+  const openVideo = (name: string) => {
+    const v = getVideoByExerciseName(name);
+    if (!v) return;
+    setActiveVideoId(v.id);
+    setVideoVisible(true);
+  };
+
+  const openTimer = (title: string, duration: number) => {
+    setTimerSpec({ title, duration });
+    setTimerVisible(true);
+  };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>ProFit Workouts</Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            ProFit Workouts
+          </Text>
           <Text style={[styles.subtitle, { color: colors.text }]}>
             Choose your next challenge
           </Text>
         </View>
 
-        {/* Categories */}
-        <View style={styles.categoriesContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Categories</Text>
-          <View style={styles.categoriesGrid}>
-            {filteredCategories.map((category, index) => (
+        {/* Location Filter */}
+        <View style={styles.segmentContainer}>
+          <View style={[styles.segment, { backgroundColor: colors.lightGray }]}>
+            {(["gym", "home"] as const).map((opt) => (
               <TouchableOpacity
-                key={index}
-                style={[styles.categoryCard, { backgroundColor: colors.lightGray }]}
-                activeOpacity={0.7}
+                key={opt}
+                style={[
+                  styles.segmentButton,
+                  {
+                    backgroundColor:
+                      locationFilter === opt ? colors.primary : "transparent",
+                  },
+                ]}
+                onPress={() => setLocationFilter(opt)}
+                activeOpacity={0.8}
               >
-                <Ionicons name={category.icon as any} size={32} color={category.color} />
-                <Text style={[styles.categoryTitle, { color: colors.text }]}>
-                  {category.title}
-                </Text>
-                <Text style={[styles.categoryCount, { color: colors.text }]}>
-                  {category.count} workouts
+                <Text
+                  style={[
+                    styles.segmentLabel,
+                    {
+                      color:
+                        locationFilter === opt ? colors.black : colors.text,
+                    },
+                  ]}
+                >
+                  {opt === "gym" ? "In Gym" : "Without Gym"}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Popular Workouts */}
+        {/* Mode Toggle */}
+        <View style={styles.segmentContainer}>
+          <View style={[styles.segment, { backgroundColor: colors.lightGray }]}>
+            {(["body", "category"] as const).map((opt) => (
+              <TouchableOpacity
+                key={opt}
+                style={[
+                  styles.segmentButton,
+                  {
+                    backgroundColor:
+                      mode === opt ? colors.secondary : "transparent",
+                  },
+                ]}
+                onPress={() => {
+                  setMode(opt);
+                  setSelectedBody(null);
+                  setSelectedCategory(null);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.segmentLabel,
+                    { color: mode === opt ? colors.black : colors.text },
+                  ]}
+                >
+                  {opt === "body" ? "Body" : "Category"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Selector Grid */}
+        <View style={styles.categoriesContainer}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            {mode === "body" ? "Body Selection" : "Categories"}
+          </Text>
+          <View style={styles.categoriesGrid}>
+            {(mode === "body" ? filteredBodies : filteredCategories).map(
+              (item) => {
+                const isActive =
+                  mode === "body"
+                    ? selectedBody === item.key
+                    : selectedCategory === item.key;
+                return (
+                  <TouchableOpacity
+                    key={item.key}
+                    style={[
+                      styles.categoryCard,
+                      {
+                        backgroundColor: isActive
+                          ? item.color
+                          : colors.lightGray,
+                      },
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      if (mode === "body") {
+                        setSelectedBody(item.key);
+                      } else {
+                        setSelectedCategory(item.key);
+                      }
+                    }}
+                  >
+                    <Ionicons
+                      name={item.icon as any}
+                      size={32}
+                      color={isActive ? colors.black : item.color}
+                    />
+                    <Text
+                      style={[styles.categoryTitle, { color: colors.text }]}
+                    >
+                      {item.title}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }
+            )}
+          </View>
+        </View>
+
+        {/* Videos List based on selection */}
+        {(selectedBody || selectedCategory) && (
+          <View style={styles.popularContainer}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Videos
+            </Text>
+            {currentVideos.length === 0 ? (
+              <Text style={{ color: colors.text, opacity: 0.7 }}>
+                No videos for this selection.
+              </Text>
+            ) : (
+              currentVideos.map((v) => (
+                <TouchableOpacity
+                  key={v.id}
+                  style={[
+                    styles.workoutCard,
+                    { backgroundColor: colors.lightGray },
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => openVideo(v.title)}
+                >
+                  <View style={styles.workoutHeader}>
+                    <View
+                      style={[
+                        styles.workoutIcon,
+                        { backgroundColor: colors.darkGray },
+                      ]}
+                    >
+                      <Ionicons
+                        name="videocam"
+                        size={20}
+                        color={colors.primary}
+                      />
+                    </View>
+                    <View style={styles.workoutInfo}>
+                      <Text
+                        style={[styles.workoutTitle, { color: colors.text }]}
+                      >
+                        {v.title}
+                      </Text>
+                      <Text
+                        style={[styles.workoutSubtitle, { color: colors.text }]}
+                      >
+                        {v.duration}
+                      </Text>
+                    </View>
+                    <Ionicons name="play" size={18} color={colors.primary} />
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        )}
+
+        {/* Expandable Flows (replace Popular Workouts) */}
         <View style={styles.popularContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Popular Workouts</Text>
-          <FlatList
-            data={filteredWorkouts}
-            renderItem={renderWorkoutCard}
-            keyExtractor={(item, index) => index.toString()}
-            scrollEnabled={false}
-            showsVerticalScrollIndicator={false}
-          />
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Popular Workouts
+          </Text>
+          {flows
+            .filter((f) =>
+              f.title.toLowerCase().includes(searchQuery.toLowerCase())
+            )
+            .map((flow, idx) => {
+              const isOpen = expandedFlowIndex === idx;
+              return (
+                <View key={flow.title}>
+                  <TouchableOpacity
+                    style={[
+                      styles.workoutCard,
+                      { backgroundColor: colors.lightGray },
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => setExpandedFlowIndex(isOpen ? null : idx)}
+                  >
+                    <View style={styles.workoutHeader}>
+                      <View
+                        style={[
+                          styles.workoutIcon,
+                          { backgroundColor: flow.color },
+                        ]}
+                      >
+                        <Ionicons
+                          name="fitness"
+                          size={24}
+                          color={colors.black}
+                        />
+                      </View>
+                      <View style={styles.workoutInfo}>
+                        <Text
+                          style={[styles.workoutTitle, { color: colors.text }]}
+                        >
+                          {flow.title}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.workoutSubtitle,
+                            { color: colors.text },
+                          ]}
+                        >
+                          Tap to {isOpen ? "collapse" : "expand"}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name={isOpen ? "chevron-up" : "chevron-down"}
+                        size={20}
+                        color={colors.text}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                  {isOpen && (
+                    <View style={{ marginBottom: 12 }}>
+                      {flow.steps.map((s, sIdx) => (
+                        <View
+                          key={sIdx}
+                          style={[
+                            styles.stepRow,
+                            { backgroundColor: colors.darkGray },
+                          ]}
+                        >
+                          <View style={styles.stepLeft}>
+                            <Text
+                              style={[
+                                styles.stepIndex,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              {sIdx + 1}
+                            </Text>
+                            <Text
+                              style={[styles.stepTitle, { color: colors.text }]}
+                            >
+                              {s.name}
+                            </Text>
+                          </View>
+                          <View style={styles.stepActions}>
+                            <TouchableOpacity
+                              style={[
+                                styles.stepButton,
+                                { backgroundColor: colors.lightGray },
+                              ]}
+                              onPress={() => openVideo(s.name)}
+                            >
+                              <Ionicons
+                                name="play"
+                                size={16}
+                                color={colors.primary}
+                              />
+                              <Text
+                                style={[
+                                  styles.stepButtonText,
+                                  { color: colors.text },
+                                ]}
+                              >
+                                Video
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[
+                                styles.stepButton,
+                                { backgroundColor: colors.lightGray },
+                              ]}
+                              onPress={() => openTimer(s.name, s.duration)}
+                            >
+                              <Ionicons
+                                name="time"
+                                size={16}
+                                color={colors.secondary}
+                              />
+                              <Text
+                                style={[
+                                  styles.stepButtonText,
+                                  { color: colors.text },
+                                ]}
+                              >
+                                {s.duration}s
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
         </View>
 
         {/* Quick Start */}
         <View style={styles.quickStartContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Start</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Quick Start
+          </Text>
           <TouchableOpacity
-            style={[styles.quickStartCard, { backgroundColor: colors.lightGray }]}
+            style={[
+              styles.quickStartCard,
+              { backgroundColor: colors.lightGray },
+            ]}
             activeOpacity={0.8}
           >
             <View style={styles.quickStartContent}>
               <View>
-                <Text style={[styles.quickStartTitle, { color: colors.text }]}>Start Random Workout</Text>
-                <Text style={[styles.quickStartSubtitle, { color: colors.text }]}>
+                <Text style={[styles.quickStartTitle, { color: colors.text }]}>
+                  Start Random Workout
+                </Text>
+                <Text
+                  style={[styles.quickStartSubtitle, { color: colors.text }]}
+                >
                   Let us choose the perfect workout for you
                 </Text>
               </View>
@@ -165,29 +568,53 @@ export default function WorkoutsScreen() {
       </ScrollView>
 
       {/* Floating Search Bar */}
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.floatingSearchContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         <BlurView intensity={20} tint="dark" style={styles.searchBarBlur}>
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color={colors.primary} style={styles.searchIcon} />
+            <Ionicons
+              name="search"
+              size={20}
+              color={colors.primary}
+              style={styles.searchIcon}
+            />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
               placeholder="SEARCH WORKOUTS..."
-              placeholderTextColor={colors.text + '80'}
+              placeholderTextColor={colors.text + "80"}
               value={searchQuery}
               onChangeText={handleSearch}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color={colors.primary} />
+              <TouchableOpacity onPress={() => setSearchQuery("")}>
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={colors.primary}
+                />
               </TouchableOpacity>
             )}
           </View>
         </BlurView>
       </KeyboardAvoidingView>
+
+      {/* Video Player Modal */}
+      <VideoPlayer
+        visible={videoVisible}
+        onClose={() => setVideoVisible(false)}
+        video={activeVideoId ? workoutVideos[activeVideoId] : null}
+      />
+
+      {/* Timer Modal */}
+      <WorkoutTimer
+        visible={timerVisible}
+        onClose={() => setTimerVisible(false)}
+        duration={timerSpec.duration}
+        title={timerSpec.title}
+      />
     </SafeAreaView>
   );
 }
@@ -202,7 +629,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
   },
   subtitle: {
@@ -218,8 +645,8 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   searchIcon: {
     marginRight: 10,
@@ -231,28 +658,50 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 10,
   },
+  segmentContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  segment: {
+    flexDirection: "row",
+    padding: 4,
+    borderRadius: 12,
+    gap: 6,
+    alignItems: "center",
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  segmentLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 15,
   },
   categoriesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   categoryCard: {
-    width: '48%',
+    width: "48%",
     padding: 20,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 15,
   },
   categoryTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 10,
-    textAlign: 'center',
+    textAlign: "center",
   },
   categoryCount: {
     fontSize: 12,
@@ -269,16 +718,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   workoutHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 10,
   },
   workoutIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   workoutInfo: {
@@ -286,7 +735,7 @@ const styles = StyleSheet.create({
   },
   workoutTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   workoutSubtitle: {
     fontSize: 14,
@@ -294,12 +743,53 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   workoutStats: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 20,
   },
+  stepRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  stepLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  stepIndex: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    textAlign: "center",
+    textAlignVertical: "center",
+    fontWeight: "800",
+  },
+  stepTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  stepActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  stepButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  stepButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
   stat: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 5,
   },
   statText: {
@@ -315,23 +805,23 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   quickStartContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   quickStartTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
   },
   quickStartSubtitle: {
     fontSize: 14,
-    color: '#000',
+    color: "#000",
     opacity: 0.7,
     marginTop: 4,
   },
   floatingSearchContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -339,4 +829,4 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     zIndex: 1000,
   },
-}); 
+});

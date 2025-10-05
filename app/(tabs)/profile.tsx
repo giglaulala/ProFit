@@ -95,9 +95,7 @@ export default function ProfileScreen() {
 
   const userStats = [
     { label: "Total Workouts", value: "156" },
-    { label: "Calories Burned", value: "45,230" },
-    { label: "Workout Time", value: "89h 30m" },
-    { label: "Current Streak", value: "7 days" },
+    { label: "Workout Hours", value: "89h 30m" },
   ];
 
   const menuItems = [{ title: "Edit Profile", icon: "person", action: "edit" }];
@@ -118,13 +116,15 @@ export default function ProfileScreen() {
             <Ionicons name="person" size={40} color={colors.black} />
           </View>
           <Text style={[styles.userName, { color: colors.text }]}>
-            {userData?.email || "User"}
+            {`${userData?.firstName ?? "Name"} ${
+              userData?.lastName ?? "Surname"
+            }`.trim()}
           </Text>
           <Text style={[styles.userLevel, { color: colors.primary }]}>
-            {userData?.role === "trainer" ? "ProFit Trainer" : "ProFit Member"}
+            Subscription: {userData?.subscription ?? "Free"}
           </Text>
           <Text style={[styles.userBio, { color: colors.text }]}>
-            Committed to staying active and healthy
+            {userData?.email ?? "user@example.com"}
           </Text>
         </View>
 
@@ -149,7 +149,52 @@ export default function ProfileScreen() {
 
         {/* Quick Actions removed as requested */}
 
-        {/* Settings */}
+        {/* Menu Items (Account) */}
+        <View style={styles.menuContainer}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Account
+          </Text>
+          <View
+            style={[styles.menuCard, { backgroundColor: colors.lightGray }]}
+          >
+            {menuItems.map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.menuItem,
+                  index !== menuItems.length - 1 && {
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.darkGray,
+                  },
+                ]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (item.action === "edit") {
+                    setIsEditVisible(true);
+                  }
+                }}
+              >
+                <View style={styles.menuLeft}>
+                  <Ionicons
+                    name={item.icon as any}
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={[styles.menuTitle, { color: colors.text }]}>
+                    {item.title}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Settings (moved below Account) */}
         <View style={styles.settingsContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             Settings
@@ -223,51 +268,6 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
-        </View>
-
-        {/* Menu Items */}
-        <View style={styles.menuContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Account
-          </Text>
-          <View
-            style={[styles.menuCard, { backgroundColor: colors.lightGray }]}
-          >
-            {menuItems.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.menuItem,
-                  index !== menuItems.length - 1 && {
-                    borderBottomWidth: 1,
-                    borderBottomColor: colors.darkGray,
-                  },
-                ]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  if (item.action === "edit") {
-                    setIsEditVisible(true);
-                  }
-                }}
-              >
-                <View style={styles.menuLeft}>
-                  <Ionicons
-                    name={item.icon as any}
-                    size={20}
-                    color={colors.primary}
-                  />
-                  <Text style={[styles.menuTitle, { color: colors.text }]}>
-                    {item.title}
-                  </Text>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={16}
-                  color={colors.text}
-                />
-              </TouchableOpacity>
-            ))}
           </View>
         </View>
 
