@@ -4,6 +4,8 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,7 +16,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import ThemedLoader from "../components/ThemedLoader";
 import Colors from "../constants/Colors";
+import { supabase } from "../lib/supabase";
 
 export default function AuthScreen() {
   const colorScheme = useColorScheme();
@@ -27,6 +31,8 @@ export default function AuthScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -36,39 +42,72 @@ export default function AuthScreen() {
     }
 
     setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
 
-    // Simulate login process
-    setTimeout(async () => {
-      try {
-        // Check if user has completed setup BEFORE saving new user data
-        const existingSetupData = await AsyncStorage.getItem("userSetupData");
+      const existingSetupData = await AsyncStorage.getItem("userSetupData");
+      const userData = {
+        email,
+        role: selectedRole,
+        isLoggedIn: true,
+        loginTime: new Date().toISOString(),
+        userId: data.user?.id,
+      };
+      await AsyncStorage.setItem("userData", JSON.stringify(userData));
 
-        // Save user data
-        const userData = {
-          email,
-          role: selectedRole,
-          isLoggedIn: true,
-          loginTime: new Date().toISOString(),
-          password,
-        };
+      // Ensure profiles row exists without overwriting names with empty values
+      if (data.user?.id) {
+        const userId = data.user.id;
+        const { data: existing } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("id", userId)
+          .maybeSingle();
 
-        await AsyncStorage.setItem("userData", JSON.stringify(userData));
+        if (!existing) {
+          await supabase
+            .from("profiles")
+            .upsert({ id: userId }, { onConflict: "id" });
+        } else if (firstName || lastName) {
+          // Only update names if provided on this screen
+          await supabase
+            .from("profiles")
+            .update({
+              first_name: firstName || undefined,
+              last_name: lastName || undefined,
+            })
+            .eq("id", userId);
+        }
+      }
 
-        // Skip setup for trainers or if setup already completed
-        if (selectedRole === "trainer") {
-          router.replace("/(tabs)");
-        } else if (existingSetupData) {
+      // Check persisted trainee settings to skip setup
+      if (selectedRole === "trainer") {
+        router.replace("/(tabs)");
+      } else {
+        let hasSettings = false;
+        if (data.user?.id) {
+          const { data: settingsRow } = await supabase
+            .from("trainee_settings")
+            .select("id")
+            .eq("id", data.user.id)
+            .maybeSingle();
+          if (settingsRow) hasSettings = true;
+        }
+        if (existingSetupData || hasSettings) {
           router.replace("/(tabs)");
         } else {
           router.replace("/setup");
         }
-      } catch (error) {
-        console.error("Login error:", error);
-        Alert.alert("Error", "Login failed. Please try again.");
-      } finally {
-        setIsLoading(false);
       }
-    }, 1500);
+    } catch (error: any) {
+      Alert.alert("Login failed", error.message || "Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleRegister = async () => {
@@ -88,36 +127,50 @@ export default function AuthScreen() {
     }
 
     setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          // You can add email redirectTo if needed
+        },
+      });
+      if (error) throw error;
 
-    // Simulate registration process
-    setTimeout(async () => {
-      try {
-        // Save user data
-        const userData = {
-          email,
-          role: selectedRole,
-          isLoggedIn: true,
-          registerTime: new Date().toISOString(),
-          password,
-        };
-
-        await AsyncStorage.setItem("userData", JSON.stringify(userData));
-
-        // Skip setup for trainers, show setup for trainees
-        if (selectedRole === "trainer") {
-          // Trainers go directly to main app
-          router.replace("/(tabs)");
-        } else {
-          // Trainees go to setup screen
-          router.replace("/setup");
-        }
-      } catch (error) {
-        console.error("Registration error:", error);
-        Alert.alert("Error", "Registration failed. Please try again.");
-      } finally {
-        setIsLoading(false);
+      // If session is available or after getUser, upsert profile
+      const userId =
+        data.user?.id || (await supabase.auth.getUser()).data.user?.id;
+      if (userId) {
+        await supabase.from("profiles").upsert(
+          {
+            id: userId,
+            first_name: firstName || null,
+            last_name: lastName || null,
+            subscription: null,
+          },
+          { onConflict: "id" }
+        );
       }
-    }, 1500);
+
+      const userData = {
+        email,
+        role: selectedRole,
+        isLoggedIn: true,
+        registerTime: new Date().toISOString(),
+        userId: userId,
+      };
+      await AsyncStorage.setItem("userData", JSON.stringify(userData));
+
+      if (selectedRole === "trainer") {
+        router.replace("/(tabs)");
+      } else {
+        router.replace("/setup");
+      }
+    } catch (error: any) {
+      Alert.alert("Registration failed", error.message || "Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renderRoleSelection = () => (
@@ -214,6 +267,42 @@ export default function AuthScreen() {
 
   const renderForm = () => (
     <View style={styles.formContainer}>
+      {!isLogin && (
+        <View style={{ gap: 12, marginBottom: 20 }}>
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>
+              First name
+            </Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.lightGray, color: colors.text },
+              ]}
+              value={firstName}
+              onChangeText={setFirstName}
+              placeholder="Enter your first name"
+              placeholderTextColor={colors.text}
+              autoCapitalize="words"
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>
+              Last name
+            </Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.lightGray, color: colors.text },
+              ]}
+              value={lastName}
+              onChangeText={setLastName}
+              placeholder="Enter your last name"
+              placeholderTextColor={colors.text}
+              autoCapitalize="words"
+            />
+          </View>
+        </View>
+      )}
       <View style={styles.inputGroup}>
         <Text style={[styles.inputLabel, { color: colors.text }]}>Email</Text>
         <TextInput
@@ -273,12 +362,9 @@ export default function AuthScreen() {
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <View style={styles.loadingContainer}>
-          <Ionicons name="fitness" size={64} color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.text }]}>
-            {isLogin ? "Logging in..." : "Creating account..."}
-          </Text>
-        </View>
+        <ThemedLoader
+          message={isLogin ? "Logging you in..." : "Creating your account..."}
+        />
       </SafeAreaView>
     );
   }
@@ -287,83 +373,102 @@ export default function AuthScreen() {
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
     >
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Ionicons name="fitness" size={48} color={colors.primary} />
-          <Text style={[styles.appTitle, { color: colors.text }]}>ProFit</Text>
-          <Text style={[styles.appSubtitle, { color: colors.text }]}>
-            Your fitness journey starts here
-          </Text>
-        </View>
-
-        {/* Auth Toggle */}
-        <View style={styles.toggleContainer}>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              { backgroundColor: isLogin ? colors.primary : colors.lightGray },
-            ]}
-            onPress={() => setIsLogin(true)}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                { color: isLogin ? colors.black : colors.text },
-              ]}
-            >
-              Login
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              { backgroundColor: !isLogin ? colors.primary : colors.lightGray },
-            ]}
-            onPress={() => setIsLogin(false)}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                { color: !isLogin ? colors.black : colors.text },
-              ]}
-            >
-              Register
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Role Selection */}
-        {renderRoleSelection()}
-
-        {/* Form */}
-        {renderForm()}
-
-        {/* Action Button */}
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: colors.primary }]}
-          onPress={isLogin ? handleLogin : handleRegister}
-          activeOpacity={0.8}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 40 }}
         >
-          <Text style={[styles.actionButtonText, { color: colors.black }]}>
-            {isLogin ? "Login" : "Register"}
-          </Text>
-          <Ionicons name="arrow-forward" size={20} color={colors.black} />
-        </TouchableOpacity>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: colors.text }]}>
-            {isLogin ? "Don't have an account? " : "Already have an account? "}
-          </Text>
-          <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
-            <Text style={[styles.footerLink, { color: colors.primary }]}>
-              {isLogin ? "Register" : "Login"}
+          {/* Header */}
+          <View style={styles.header}>
+            <Ionicons name="fitness" size={48} color={colors.primary} />
+            <Text style={[styles.appTitle, { color: colors.text }]}>
+              ProFit
             </Text>
+            <Text style={[styles.appSubtitle, { color: colors.text }]}>
+              Your fitness journey starts here
+            </Text>
+          </View>
+
+          {/* Auth Toggle */}
+          <View style={styles.toggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                {
+                  backgroundColor: isLogin ? colors.primary : colors.lightGray,
+                },
+              ]}
+              onPress={() => setIsLogin(true)}
+            >
+              <Text
+                style={[
+                  styles.toggleText,
+                  { color: isLogin ? colors.black : colors.text },
+                ]}
+              >
+                Login
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                {
+                  backgroundColor: !isLogin ? colors.primary : colors.lightGray,
+                },
+              ]}
+              onPress={() => setIsLogin(false)}
+            >
+              <Text
+                style={[
+                  styles.toggleText,
+                  { color: !isLogin ? colors.black : colors.text },
+                ]}
+              >
+                Register
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Role Selection (only for Register) */}
+          {!isLogin && renderRoleSelection()}
+
+          {/* Form */}
+          {renderForm()}
+
+          {/* Action Button */}
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.primary }]}
+            onPress={isLogin ? handleLogin : handleRegister}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.actionButtonText, { color: colors.black }]}>
+              {isLogin ? "Login" : "Register"}
+            </Text>
+            <Ionicons name="arrow-forward" size={20} color={colors.black} />
           </TouchableOpacity>
-        </View>
-      </ScrollView>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: colors.text }]}>
+              {isLogin
+                ? "Don't have an account? "
+                : "Already have an account? "}
+            </Text>
+            <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
+              <Text style={[styles.footerLink, { color: colors.primary }]}>
+                {isLogin ? "Register" : "Login"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

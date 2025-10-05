@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import Colors from "../../constants/Colors";
+import { supabase } from "../../lib/supabase";
 
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
@@ -24,6 +25,8 @@ export default function ProfileScreen() {
   const [notifications, setNotifications] = useState(true);
   const [userData, setUserData] = useState<any>(null);
   const [language, setLanguage] = useState<"en" | "ka">("en");
+  const [firstName, setFirstName] = useState<string>("");
+  const [lastName, setLastName] = useState<string>("");
 
   const [isEditVisible, setIsEditVisible] = useState(false);
   const [editEmail, setEditEmail] = useState("");
@@ -42,6 +45,33 @@ export default function ProfileScreen() {
         const parsed = JSON.parse(data);
         setUserData(parsed);
         setEditEmail(parsed?.email ?? "");
+        if (parsed?.userId) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("first_name, last_name, subscription")
+            .eq("id", parsed.userId)
+            .maybeSingle();
+          if (profile) {
+            setFirstName(profile.first_name ?? "");
+            setLastName(profile.last_name ?? "");
+            setUserData((u: any) => ({
+              ...(u ?? {}),
+              subscription: profile.subscription ?? u?.subscription,
+            }));
+          }
+
+          const { data: settings } = await supabase
+            .from("trainee_settings")
+            .select("goal, weight, height, free_days")
+            .eq("id", parsed.userId)
+            .maybeSingle();
+          if (settings) {
+            setUserData((u: any) => ({
+              ...(u ?? {}),
+              traineeSettings: settings,
+            }));
+          }
+        }
       }
     } catch (error) {
       console.error("Error loading user data:", error);
@@ -80,6 +110,7 @@ export default function ProfileScreen() {
         style: "destructive",
         onPress: async () => {
           try {
+            await supabase.auth.signOut();
             // Clear user data
             await AsyncStorage.removeItem("userData");
             await AsyncStorage.removeItem("userSetupData");
@@ -116,9 +147,7 @@ export default function ProfileScreen() {
             <Ionicons name="person" size={40} color={colors.black} />
           </View>
           <Text style={[styles.userName, { color: colors.text }]}>
-            {`${userData?.firstName ?? "Name"} ${
-              userData?.lastName ?? "Surname"
-            }`.trim()}
+            {`${firstName || "Name"} ${lastName || "Surname"}`.trim()}
           </Text>
           <Text style={[styles.userLevel, { color: colors.primary }]}>
             Subscription: {userData?.subscription ?? "Free"}

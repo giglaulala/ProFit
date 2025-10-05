@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import ThemedLoader from "../components/ThemedLoader";
 import Colors from "../constants/Colors";
+import { supabase } from "../lib/supabase";
 
 export default function SetupScreen() {
   const colorScheme = useColorScheme();
@@ -89,6 +90,23 @@ export default function SetupScreen() {
 
         await AsyncStorage.setItem("userSetupData", JSON.stringify(setupData));
         console.log("Setup data saved:", setupData);
+
+        // Persist to Supabase tied to the authenticated user
+        const { data: userInfo } = await supabase.auth.getUser();
+        const userId = userInfo.user?.id;
+        if (userId) {
+          await supabase.from("trainee_settings").upsert(
+            {
+              id: userId,
+              goal: setupData.goal,
+              weight: setupData.weight,
+              height: setupData.height,
+              free_days: setupData.freeDays,
+              completed_at: setupData.completedAt,
+            },
+            { onConflict: "id" }
+          );
+        }
       } catch (error) {
         console.error("Error saving setup data:", error);
       }

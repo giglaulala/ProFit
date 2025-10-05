@@ -1,3 +1,35 @@
+## Supabase Setup
+
+Add your Supabase credentials in `app.json` under `expo.extra`:
+
+```
+"supabaseUrl": "https://YOUR_PROJECT.ref.supabase.co",
+"supabaseAnonKey": "YOUR_SUPABASE_ANON_KEY"
+```
+
+Install dependency:
+
+Optional tables for trainee settings:
+
+```sql
+create table if not exists trainee_settings (
+  id uuid primary key references auth.users(id) on delete cascade,
+  goal text,
+  weight numeric,
+  height numeric,
+  free_days int,
+  completed_at timestamptz default now()
+);
+alter table trainee_settings enable row level security;
+create policy "read own settings" on trainee_settings for select using (auth.uid() = id);
+create policy "upsert own settings" on trainee_settings for insert with check (auth.uid() = id);
+create policy "update own settings" on trainee_settings for update using (auth.uid() = id);
+```
+
+```
+npm i @supabase/supabase-js @react-native-async-storage/async-storage
+```
+
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).

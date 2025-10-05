@@ -25,6 +25,7 @@ import {
   getVideoByExerciseName,
   WorkoutVideo,
 } from "../../constants/WorkoutVideos";
+import { supabase } from "../../lib/supabase";
 
 const { width } = Dimensions.get("window");
 
@@ -398,11 +399,63 @@ export default function DashboardScreen() {
         ]);
         if (calStr) setUserCalendar(JSON.parse(calStr));
         if (mapStr) setCalendarMap(JSON.parse(mapStr));
+        // Load trainee settings from Supabase or fallback to AsyncStorage setup
+        const { data: userInfo } = await supabase.auth.getUser();
+        const userId = userInfo.user?.id;
+        if (userId) {
+          const { data: settings } = await supabase
+            .from("trainee_settings")
+            .select("goal, weight, height, free_days")
+            .eq("id", userId)
+            .maybeSingle();
+          if (settings) {
+            if (typeof settings.weight === "number") setWeight(settings.weight);
+            if (typeof settings.height === "number") setHeight(settings.height);
+            if (typeof settings.free_days === "number")
+              setFreeDays(settings.free_days);
+            if (typeof settings.goal === "string")
+              setSelectedWorkoutGoal(settings.goal);
+          } else {
+            const setupStr = await AsyncStorage.getItem("userSetupData");
+            if (setupStr) {
+              const s = JSON.parse(setupStr);
+              if (typeof s.weight === "number") setWeight(s.weight);
+              if (typeof s.height === "number") setHeight(s.height);
+              if (typeof s.freeDays === "number") setFreeDays(s.freeDays);
+              if (typeof s.goal === "string") setSelectedWorkoutGoal(s.goal);
+            }
+          }
+        }
       } catch (e) {
         console.error("calendar load error", e);
       }
     })();
   }, []);
+
+  const persistTraineeSettings = async (next: {
+    weight?: number;
+    height?: number;
+    freeDays?: number;
+    goal?: string;
+  }) => {
+    try {
+      const { data: userInfo } = await supabase.auth.getUser();
+      const userId = userInfo.user?.id;
+      if (!userId) return;
+      await supabase.from("trainee_settings").upsert(
+        {
+          id: userId,
+          goal: next.goal ?? selectedWorkoutGoal,
+          weight: next.weight ?? weight,
+          height: next.height ?? height,
+          free_days: next.freeDays ?? freeDays,
+        },
+        { onConflict: "id" }
+      );
+    } catch (e) {
+      console.warn("persist settings failed", e);
+    }
+  };
 
   const uiCalendarDays: WorkoutDay[] = useMemo(() => {
     if (!userCalendar) return roadmapCalendar;
@@ -597,18 +650,22 @@ export default function DashboardScreen() {
 
   const handleWeightChange = (newWeight: number) => {
     setWeight(newWeight);
+    persistTraineeSettings({ weight: newWeight });
   };
 
   const handleHeightChange = (newHeight: number) => {
     setHeight(newHeight);
+    persistTraineeSettings({ height: newHeight });
   };
 
   const handleFreeDaysChange = (newFreeDays: number) => {
     setFreeDays(newFreeDays);
+    persistTraineeSettings({ freeDays: newFreeDays });
   };
 
   const handleWorkoutGoalPress = (goalId: string) => {
     setSelectedWorkoutGoal(goalId);
+    persistTraineeSettings({ goal: goalId });
   };
 
   const handleVideoPress = (exerciseName: string) => {
