@@ -756,117 +756,6 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Workout Goals */}
-        <View style={styles.goalsContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            PERSONALIZED PLAN
-          </Text>
-          <View style={styles.goalsGrid}>
-            {workoutGoals.map((goal, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.goalCardContainer,
-                  selectedWorkoutGoal === goal.id && {
-                    borderWidth: 2,
-                    borderColor: colors.primary,
-                  },
-                ]}
-                activeOpacity={0.8}
-                onPress={() => handleWorkoutGoalPress(goal.id)}
-              >
-                <ImageBackground
-                  source={goal.image}
-                  style={styles.goalCard}
-                  imageStyle={styles.goalCardImage}
-                >
-                  <View
-                    style={[
-                      styles.goalCardOverlay,
-                      { backgroundColor: "rgba(18, 18, 18, 0.4)" },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.goalIconContainer,
-                        { backgroundColor: "rgba(226, 255, 0, 0.2)" },
-                      ]}
-                    >
-                      <Ionicons
-                        name={goal.icon as any}
-                        size={24}
-                        color={colors.primary}
-                      />
-                    </View>
-                    <Text style={[styles.goalTitle, { color: colors.text }]}>
-                      {goal.title.toUpperCase()}
-                    </Text>
-                    <Text
-                      style={[styles.goalDuration, { color: colors.primary }]}
-                    >
-                      5-8 MIN
-                    </Text>
-                    {selectedWorkoutGoal === goal.id && (
-                      <View
-                        style={[
-                          styles.selectedIndicator,
-                          { backgroundColor: colors.primary },
-                        ]}
-                      >
-                        <Ionicons
-                          name="checkmark"
-                          size={16}
-                          color={colors.black}
-                        />
-                      </View>
-                    )}
-                  </View>
-                </ImageBackground>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Weekly Stats */}
-        <View style={styles.weeklyStatsContainer}>
-          <View style={styles.weeklyStatsHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              CALORIES
-            </Text>
-            <View style={styles.weeklyAverage}>
-              <Text style={[styles.weeklyAverageLabel, { color: colors.text }]}>
-                WEEKLY AVERAGE
-              </Text>
-              <Text
-                style={[styles.weeklyAverageValue, { color: colors.primary }]}
-              >
-                102 CAL
-              </Text>
-            </View>
-          </View>
-          <View style={styles.weeklyGraph}>
-            {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map(
-              (day, index) => (
-                <View key={day} style={styles.graphColumn}>
-                  <View
-                    style={[
-                      styles.graphBar,
-                      {
-                        height: index === 2 ? 100 : 40,
-                        backgroundColor:
-                          index === 2 ? colors.primary : colors.darkGray,
-                      },
-                    ]}
-                  />
-                  <Text style={[styles.graphLabel, { color: colors.text }]}>
-                    {day}
-                  </Text>
-                </View>
-              )
-            )}
-          </View>
-        </View>
-
         {/* Calendar */}
         <View style={styles.calendarContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -1075,7 +964,7 @@ export default function DashboardScreen() {
                   backgroundColor: colors.darkGray,
                 }}
               >
-                <Text style={{ color: colors.text }}>Code</Text>
+                <Text style={{ color: colors.text }}>Share</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={async () => {
@@ -1093,6 +982,348 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             </View>
           )}
+        </View>
+
+        {/* Progress - This Week */}
+        <View style={styles.progressChartContainer}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            This Week
+          </Text>
+          <View
+            style={[
+              styles.progressChartCard,
+              { backgroundColor: colors.lightGray },
+            ]}
+          >
+            <View style={styles.progressChartBars}>
+              {[
+                { day: "Mon", value: 45, target: 60 },
+                { day: "Tue", value: 60, target: 60 },
+                { day: "Wed", value: 30, target: 60 },
+                { day: "Thu", value: 75, target: 60 },
+                { day: "Fri", value: 50, target: 60 },
+                { day: "Sat", value: 90, target: 60 },
+                { day: "Sun", value: 40, target: 60 },
+              ].map((stat, index) => (
+                <View key={index} style={styles.progressBarContainer}>
+                  <View style={styles.progressBarWrapper}>
+                    <View
+                      style={[
+                        styles.progressBar,
+                        {
+                          height: (stat.value / stat.target) * 100,
+                          backgroundColor:
+                            stat.value >= stat.target
+                              ? colors.primary
+                              : colors.secondary,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text
+                    style={[styles.progressBarLabel, { color: colors.text }]}
+                  >
+                    {stat.day}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.progressChartStats}>
+              <View style={styles.progressChartStat}>
+                <Text
+                  style={[
+                    styles.progressChartStatValue,
+                    { color: colors.primary },
+                  ]}
+                >
+                  390
+                </Text>
+                <Text
+                  style={[
+                    styles.progressChartStatLabel,
+                    { color: colors.text },
+                  ]}
+                >
+                  Minutes
+                </Text>
+              </View>
+              <View style={styles.progressChartStat}>
+                <Text
+                  style={[
+                    styles.progressChartStatValue,
+                    { color: colors.secondary },
+                  ]}
+                >
+                  65%
+                </Text>
+                <Text
+                  style={[
+                    styles.progressChartStatLabel,
+                    { color: colors.text },
+                  ]}
+                >
+                  Goal Met
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Monthly Goals */}
+        <View style={styles.progressGoalsContainer}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Monthly Goals
+          </Text>
+          {[
+            { title: "Workouts", current: 12, target: 20, icon: "fitness" },
+            { title: "Calories", current: 8500, target: 12000, icon: "flame" },
+            { title: "Minutes", current: 540, target: 900, icon: "time" },
+          ].map((goal, index) => (
+            <View
+              key={index}
+              style={[
+                styles.progressGoalCard,
+                { backgroundColor: colors.lightGray },
+              ]}
+            >
+              <View style={styles.progressGoalHeader}>
+                <View style={styles.progressGoalIcon}>
+                  <Ionicons
+                    name={goal.icon as any}
+                    size={20}
+                    color={colors.primary}
+                  />
+                </View>
+                <View style={styles.progressGoalInfo}>
+                  <Text
+                    style={[styles.progressGoalTitle, { color: colors.text }]}
+                  >
+                    {goal.title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.progressGoalProgress,
+                      { color: colors.text },
+                    ]}
+                  >
+                    {goal.current.toLocaleString()} /{" "}
+                    {goal.target.toLocaleString()}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.progressGoalPercentage,
+                    { color: colors.primary },
+                  ]}
+                >
+                  {Math.round((goal.current / goal.target) * 100)}%
+                </Text>
+              </View>
+              <View style={styles.progressBarOuter}>
+                <View
+                  style={[
+                    styles.progressBarInner,
+                    {
+                      width: `${Math.min(
+                        (goal.current / goal.target) * 100,
+                        100
+                      )}%`,
+                      backgroundColor: colors.primary,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* Achievements */}
+        <View style={styles.progressAchievementsContainer}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Achievements
+          </Text>
+          <View style={styles.progressAchievementsGrid}>
+            {[
+              {
+                title: "7 Day Streak",
+                icon: "trophy",
+                color: colors.primary,
+                unlocked: true,
+              },
+              {
+                title: "First Workout",
+                icon: "star",
+                color: colors.secondary,
+                unlocked: true,
+              },
+              {
+                title: "100 Calories",
+                icon: "flame",
+                color: colors.accent,
+                unlocked: true,
+              },
+              {
+                title: "30 Day Challenge",
+                icon: "medal",
+                color: colors.darkGreen,
+                unlocked: false,
+              },
+            ].map((achievement, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.progressAchievementCard,
+                  {
+                    backgroundColor: colors.lightGray,
+                    opacity: achievement.unlocked ? 1 : 0.5,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.progressAchievementIcon,
+                    {
+                      backgroundColor: achievement.unlocked
+                        ? achievement.color
+                        : colors.darkGray,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={achievement.icon as any}
+                    size={24}
+                    color={achievement.unlocked ? colors.black : colors.text}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.progressAchievementTitle,
+                    { color: colors.text },
+                  ]}
+                >
+                  {achievement.title}
+                </Text>
+                {achievement.unlocked && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={16}
+                    color={colors.primary}
+                  />
+                )}
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Workout Goals */}
+        <View style={styles.goalsContainer}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            PERSONALIZED PLAN
+          </Text>
+          <View style={styles.goalsGrid}>
+            {workoutGoals.map((goal, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.goalCardContainer,
+                  selectedWorkoutGoal === goal.id && {
+                    borderWidth: 2,
+                    borderColor: colors.primary,
+                  },
+                ]}
+                activeOpacity={0.8}
+                onPress={() => handleWorkoutGoalPress(goal.id)}
+              >
+                <ImageBackground
+                  source={goal.image}
+                  style={styles.goalCard}
+                  imageStyle={styles.goalCardImage}
+                >
+                  <View
+                    style={[
+                      styles.goalCardOverlay,
+                      { backgroundColor: "rgba(18, 18, 18, 0.4)" },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.goalIconContainer,
+                        { backgroundColor: "rgba(226, 255, 0, 0.2)" },
+                      ]}
+                    >
+                      <Ionicons
+                        name={goal.icon as any}
+                        size={24}
+                        color={colors.primary}
+                      />
+                    </View>
+                    <Text style={[styles.goalTitle, { color: colors.text }]}>
+                      {goal.title.toUpperCase()}
+                    </Text>
+                    <Text
+                      style={[styles.goalDuration, { color: colors.primary }]}
+                    >
+                      5-8 MIN
+                    </Text>
+                    {selectedWorkoutGoal === goal.id && (
+                      <View
+                        style={[
+                          styles.selectedIndicator,
+                          { backgroundColor: colors.primary },
+                        ]}
+                      >
+                        <Ionicons
+                          name="checkmark"
+                          size={16}
+                          color={colors.black}
+                        />
+                      </View>
+                    )}
+                  </View>
+                </ImageBackground>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Weekly Stats */}
+        <View style={styles.weeklyStatsContainer}>
+          <View style={styles.weeklyStatsHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              CALORIES
+            </Text>
+            <View style={styles.weeklyAverage}>
+              <Text style={[styles.weeklyAverageLabel, { color: colors.text }]}>
+                WEEKLY AVERAGE
+              </Text>
+              <Text
+                style={[styles.weeklyAverageValue, { color: colors.primary }]}
+              >
+                102 CAL
+              </Text>
+            </View>
+          </View>
+          <View style={styles.weeklyGraph}>
+            {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map(
+              (day, index) => (
+                <View key={day} style={styles.graphColumn}>
+                  <View
+                    style={[
+                      styles.graphBar,
+                      {
+                        height: index === 2 ? 100 : 40,
+                        backgroundColor:
+                          index === 2 ? colors.primary : colors.darkGray,
+                      },
+                    ]}
+                  />
+                  <Text style={[styles.graphLabel, { color: colors.text }]}>
+                    {day}
+                  </Text>
+                </View>
+              )
+            )}
+          </View>
         </View>
       </ScrollView>
 
@@ -1844,6 +2075,135 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 10,
     paddingBottom: 40,
+  },
+  // Progress mirror styles from progress tab, names prefixed to avoid clashes
+  progressChartContainer: {
+    padding: 20,
+    paddingTop: 10,
+  },
+  progressChartCard: {
+    padding: 20,
+    borderRadius: 12,
+  },
+  progressChartBars: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "flex-end",
+    height: 120,
+    marginBottom: 20,
+  },
+  progressBarContainer: {
+    alignItems: "center",
+    marginHorizontal: 6,
+  },
+  progressBarWrapper: {
+    height: 100,
+    justifyContent: "flex-end",
+    marginBottom: 8,
+  },
+  progressBar: {
+    width: 20,
+    borderRadius: 10,
+    minHeight: 4,
+  },
+  progressBarLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  progressChartStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  progressChartStat: {
+    alignItems: "center",
+  },
+  progressChartStatValue: {
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+  progressChartStatLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 2,
+  },
+  progressGoalsContainer: {
+    padding: 20,
+    paddingTop: 10,
+  },
+  progressGoalCard: {
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  progressGoalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  progressGoalIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0, 255, 136, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  progressGoalInfo: {
+    flex: 1,
+  },
+  progressGoalTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  progressGoalProgress: {
+    fontSize: 14,
+    opacity: 0.7,
+    marginTop: 2,
+  },
+  progressGoalPercentage: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  progressBarOuter: {
+    height: 6,
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressBarInner: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  progressAchievementsContainer: {
+    padding: 20,
+    paddingTop: 10,
+  },
+  progressAchievementsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  progressAchievementCard: {
+    width: (width - 60) / 2,
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  progressAchievementIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  progressAchievementTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 4,
   },
   modalOverlay: {
     flex: 1,

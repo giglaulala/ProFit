@@ -34,6 +34,9 @@ export default function AuthScreen() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [gender, setGender] = useState<"male" | "female" | "other" | null>(
+    null
+  );
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -116,6 +119,11 @@ export default function AuthScreen() {
       return;
     }
 
+    if (!gender) {
+      Alert.alert("Error", "Please select your gender");
+      return;
+    }
+
     if (password !== confirmPassword) {
       Alert.alert("Error", "Passwords do not match");
       return;
@@ -146,6 +154,7 @@ export default function AuthScreen() {
             id: userId,
             first_name: firstName || null,
             last_name: lastName || null,
+            gender: gender,
             subscription: null,
           },
           { onConflict: "id" }
@@ -300,6 +309,43 @@ export default function AuthScreen() {
               placeholderTextColor={colors.text}
               autoCapitalize="words"
             />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>
+              Gender
+            </Text>
+            <View style={styles.choiceRow}>
+              {[
+                { key: "male", label: "Male" },
+                { key: "female", label: "Female" },
+                { key: "other", label: "Other" },
+              ].map((g) => (
+                <TouchableOpacity
+                  key={g.key}
+                  style={[
+                    styles.choiceChip,
+                    {
+                      backgroundColor:
+                        gender === (g.key as any)
+                          ? colors.primary
+                          : colors.lightGray,
+                    },
+                  ]}
+                  onPress={() => setGender(g.key as any)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={{
+                      color:
+                        gender === (g.key as any) ? colors.black : colors.text,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {g.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
       )}
@@ -566,6 +612,16 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 18,
     fontWeight: "600",
+  },
+  choiceRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+  },
+  choiceChip: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   footer: {
     flexDirection: "row",

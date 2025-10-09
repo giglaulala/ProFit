@@ -24,6 +24,16 @@ function CameraTabBarIcon() {
   );
 }
 
+function ChatTabBarIcon() {
+  return (
+    <View style={styles.cameraTabContainer}>
+      <View style={styles.cameraCircle}>
+        <Ionicons name="chatbubble-ellipses" size={24} color="#000000" />
+      </View>
+    </View>
+  );
+}
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
@@ -52,6 +62,24 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* 2. Camera (regular tab) */}
+      <Tabs.Screen
+        name="tracking"
+        options={{
+          title: "",
+          tabBarLabel: "Scan",
+          tabBarIcon: ({ color }) => <TabBarIcon name="camera" color={color} />,
+        }}
+      />
+      {/* 3. Chat (center floating) */}
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: "",
+          tabBarIcon: () => <ChatTabBarIcon />,
+        }}
+      />
+      {/* 4. Workouts */}
       <Tabs.Screen
         name="workouts"
         options={{
@@ -61,23 +89,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="tracking"
-        options={{
-          title: "",
-          tabBarIcon: () => <CameraTabBarIcon />,
-        }}
-      />
-      <Tabs.Screen
-        name="progress"
-        options={{
-          title: "Progress",
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="trending-up" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen />
+      {/* 5. Profile (unchanged) */}
       <Tabs.Screen
         name="profile"
         options={{
@@ -85,10 +97,11 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="person" color={color} />,
         }}
       />
+      {/* Hide Progress from tab bar */}
       <Tabs.Screen
-        name="chat"
+        name="progress"
         options={{
-          href: null, // Hide from tab bar
+          href: null,
         }}
       />
     </Tabs>
