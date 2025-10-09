@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
@@ -614,9 +613,11 @@ export default function DashboardScreen() {
       return;
     }
     try {
+      const { data: auth } = await supabase.auth.getUser();
+      const currentUserId = auth.user?.id;
       const { data, error } = await supabase
         .from("calendars")
-        .select("id, title, plan")
+        .select("id, title, plan, owner")
         .eq("id", code)
         .maybeSingle();
       if (error) throw error;
@@ -624,7 +625,13 @@ export default function DashboardScreen() {
         alert("No calendar found for this ID");
         return;
       }
-      const cal = { id: data.id, plan: data.plan, shareCode: data.id };
+      const isOwner =
+        currentUserId && data.owner && currentUserId === data.owner;
+      const cal = {
+        id: data.id,
+        plan: isOwner ? data.plan : {},
+        shareCode: data.id,
+      };
       await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
       setUserCalendar(cal);
     } catch (e: any) {
@@ -1863,14 +1870,7 @@ export default function DashboardScreen() {
         video={selectedVideo}
       />
 
-      {/* Floating Chat Button */}
-      <TouchableOpacity
-        style={[styles.floatingChatButton, { backgroundColor: colors.primary }]}
-        onPress={() => router.push("/chat")}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="chatbubble-ellipses" size={24} color={colors.black} />
-      </TouchableOpacity>
+      {/* Floating Chat Button removed */}
     </SafeAreaView>
   );
 }
