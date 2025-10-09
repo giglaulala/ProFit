@@ -521,16 +521,17 @@ export default function DashboardScreen() {
       const iso = dt.toISOString().slice(0, 10);
       plan[iso] = { date: iso, entries: pickExercises(), restAfterEachSec: 60 };
     }
+    const shareId = `ProFit-${Math.random()
+      .toString(36)
+      .slice(2, 8)
+      .toUpperCase()}`;
     const cal = {
-      id: `cal_${Date.now()}`,
+      id: shareId,
       goal,
       level,
       selectedDays,
       plan,
-      shareCode: `ProFit-${Math.random()
-        .toString(36)
-        .slice(2, 5)
-        .toUpperCase()}`,
+      shareCode: shareId,
     };
     return cal;
   };
@@ -609,16 +610,26 @@ export default function DashboardScreen() {
   const handleJoinCalendar = async () => {
     const code = joinCode.trim();
     if (!/^ProFit-\w{3,}$/i.test(code)) {
-      alert("Invalid code. Format ProFit-XXX");
+      alert("Invalid code. Format ProFit-XXXX");
       return;
     }
-    const cal = calendarMap[code];
-    if (!cal) {
-      alert("No calendar for this code");
-      return;
+    try {
+      const { data, error } = await supabase
+        .from("calendars")
+        .select("id, title, plan")
+        .eq("id", code)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        alert("No calendar found for this ID");
+        return;
+      }
+      const cal = { id: data.id, plan: data.plan, shareCode: data.id };
+      await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
+      setUserCalendar(cal);
+    } catch (e: any) {
+      alert(e.message || "Failed to load calendar");
     }
-    await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
-    setUserCalendar(cal);
   };
 
   const handleCreateCalendar = async () => {
@@ -627,13 +638,23 @@ export default function DashboardScreen() {
       return;
     }
     const cal = generateCalendar();
-    const newMap = { ...calendarMap, [cal.shareCode]: cal };
-    await Promise.all([
-      AsyncStorage.setItem("userCalendar", JSON.stringify(cal)),
-      AsyncStorage.setItem("calendarShareMap", JSON.stringify(newMap)),
-    ]);
-    setCalendarMap(newMap);
-    setUserCalendar(cal);
+    try {
+      const { data: userInfo } = await supabase.auth.getUser();
+      const owner = userInfo.user?.id ?? null;
+      const { error } = await supabase.from("calendars").insert({
+        id: cal.id,
+        owner,
+        title: `${goal} plan`,
+        plan: cal.plan,
+      });
+      if (error && !String(error.message || "").includes("duplicate")) {
+        throw error;
+      }
+      await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
+      setUserCalendar(cal);
+    } catch (e: any) {
+      alert(e.message || "Failed to create calendar");
+    }
   };
 
   const handleWeightPress = () => {
