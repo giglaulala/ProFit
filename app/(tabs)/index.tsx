@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Dimensions,
   Image,
   ImageBackground,
@@ -31,7 +32,8 @@ const { width } = Dimensions.get("window");
 interface WorkoutDay {
   date: string;
   workout: string;
-  type: "chest" | "legs" | "cardio" | "shoulders" | "back";
+  type: "cardio" | "weight" | "mobility" | "explosive";
+  completed?: boolean;
 }
 
 interface Exercise {
@@ -41,6 +43,7 @@ interface Exercise {
   rest: string;
   video: string;
   muscleGroup: string;
+  equipment?: string;
 }
 
 interface WorkoutDetails {
@@ -58,6 +61,9 @@ export default function DashboardScreen() {
   const [showTimer, setShowTimer] = useState(false);
   const [timerDuration, setTimerDuration] = useState(120);
   const [timerTitle, setTimerTitle] = useState("");
+  const [workoutRunning, setWorkoutRunning] = useState(false);
+  const [workoutStartAt, setWorkoutStartAt] = useState<number | null>(null);
+  const [completedExercisesCount, setCompletedExercisesCount] = useState(0);
   const [weight, setWeight] = useState(75);
   const [height, setHeight] = useState(175);
   const [freeDays, setFreeDays] = useState(3);
@@ -70,6 +76,15 @@ export default function DashboardScreen() {
   const [joinCode, setJoinCode] = useState("");
   const [userCalendar, setUserCalendar] = useState<any | null>(null);
   const [calendarMap, setCalendarMap] = useState<Record<string, any>>({});
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summaryData, setSummaryData] = useState<{
+    selectedDate?: string;
+    selectedMinutes?: number;
+    selectedCalories?: number;
+    totalCompleted: number;
+    totalMinutes: number;
+    totalCalories: number;
+  }>({ totalCompleted: 0, totalMinutes: 0, totalCalories: 0 });
   const [goal, setGoal] = useState<
     "weight_loss" | "muscle_gain" | "maintenance" | "strength"
   >("weight_loss");
@@ -110,187 +125,190 @@ export default function DashboardScreen() {
   ];
 
   const roadmapCalendar: WorkoutDay[] = [
-    { date: "18.06", workout: "Chest Workout", type: "chest" },
-    { date: "20.06", workout: "Leg Day", type: "legs" },
-    { date: "22.06", workout: "Cardio", type: "cardio" },
-    { date: "24.06", workout: "Shoulder Workout", type: "shoulders" },
-    { date: "26.06", workout: "Back Workout", type: "back" },
-    { date: "28.06", workout: "Cardio", type: "cardio" },
-    { date: "30.06", workout: "Chest Workout", type: "chest" },
-    { date: "02.07", workout: "Leg Day", type: "legs" },
-    { date: "04.07", workout: "Cardio", type: "cardio" },
-    { date: "06.07", workout: "Shoulder Workout", type: "shoulders" },
-    { date: "08.07", workout: "Back Workout", type: "back" },
-    { date: "10.07", workout: "Cardio", type: "cardio" },
+    { date: "18.06", workout: "Intervals", type: "cardio" },
+    { date: "20.06", workout: "Upper Body", type: "weight" },
+    { date: "22.06", workout: "Mobility Flow", type: "mobility" },
+    { date: "24.06", workout: "Plyometrics", type: "explosive" },
+    { date: "26.06", workout: "Tempo Run", type: "cardio" },
+    { date: "28.06", workout: "Lower Body", type: "weight" },
+    { date: "30.06", workout: "Mobility Flow", type: "mobility" },
+    { date: "02.07", workout: "Sprints", type: "explosive" },
+    { date: "04.07", workout: "Intervals", type: "cardio" },
+    { date: "06.07", workout: "Upper Body", type: "weight" },
+    { date: "08.07", workout: "Mobility Flow", type: "mobility" },
+    { date: "10.07", workout: "Plyometrics", type: "explosive" },
   ];
 
   const workoutDetails: Record<string, WorkoutDetails> = {
-    chest: {
-      title: "Chest Workout",
+    cardio: {
+      title: "Cardio Session",
       exercises: [
         {
-          name: "Bench Press",
-          sets: 4,
-          reps: "8-12",
-          rest: "2 min",
-          video: "Bench Press Video",
-          muscleGroup: "chest",
+          name: "Intervals",
+          sets: 1,
+          reps: "15 min",
+          rest: "-",
+          video: "Intervals",
+          muscleGroup: "cardio",
         },
         {
-          name: "Cable Fly",
-          sets: 3,
-          reps: "10-15",
-          rest: "1.5 min",
-          video: "Fly Video",
-          muscleGroup: "chest",
+          name: "Tempo Run",
+          sets: 1,
+          reps: "20 min",
+          rest: "-",
+          video: "Run",
+          muscleGroup: "cardio",
         },
         {
-          name: "Push-ups",
-          sets: 3,
-          reps: "15-20",
-          rest: "1 min",
-          video: "Push-ups Video",
-          muscleGroup: "chest",
+          name: "Rowing Machine",
+          sets: 1,
+          reps: "12 min",
+          rest: "-",
+          video: "Row",
+          muscleGroup: "cardio",
+        },
+        {
+          name: "Assault Bike",
+          sets: 1,
+          reps: "10 min",
+          rest: "-",
+          video: "Bike",
+          muscleGroup: "cardio",
         },
       ],
     },
-    legs: {
-      title: "Leg Day",
+    weight: {
+      title: "Weight Training",
       exercises: [
         {
           name: "Squats",
           sets: 4,
-          reps: "8-12",
-          rest: "3 min",
-          video: "Squats Video",
-          muscleGroup: "legs",
-        },
-        {
-          name: "Lunges",
-          sets: 3,
-          reps: "10-15",
-          rest: "2 min",
-          video: "Lunges Video",
-          muscleGroup: "legs",
-        },
-        {
-          name: "Calf Raises",
-          sets: 3,
-          reps: "15-20",
-          rest: "1 min",
-          video: "Calf Raises Video",
-          muscleGroup: "legs",
-        },
-        {
-          name: "Deadlifts",
-          sets: 3,
           reps: "6-10",
           rest: "3 min",
-          video: "Deadlifts Video",
+          video: "Squats",
           muscleGroup: "legs",
         },
-      ],
-    },
-    shoulders: {
-      title: "Shoulder Workout",
-      exercises: [
         {
-          name: "Military Press",
+          name: "Bench Press",
           sets: 4,
+          reps: "6-10",
+          rest: "2-3 min",
+          video: "Bench Press",
+          muscleGroup: "chest",
+        },
+        {
+          name: "Rows",
+          sets: 3,
           reps: "8-12",
           rest: "2 min",
-          video: "Military Press Video",
-          muscleGroup: "shoulders",
+          video: "Rows",
+          muscleGroup: "back",
         },
         {
-          name: "Lateral Raises",
+          name: "Lat Pulldown",
           sets: 3,
-          reps: "12-15",
-          rest: "1.5 min",
-          video: "Lateral Raises Video",
-          muscleGroup: "shoulders",
-        },
-        {
-          name: "Front Raises",
-          sets: 3,
-          reps: "12-15",
-          rest: "1.5 min",
-          video: "Front Raises Video",
-          muscleGroup: "shoulders",
-        },
-        {
-          name: "Rear Delt Flyes",
-          sets: 3,
-          reps: "12-15",
-          rest: "1.5 min",
-          video: "Rear Delt Flyes Video",
-          muscleGroup: "shoulders",
-        },
-      ],
-    },
-    back: {
-      title: "Back Workout",
-      exercises: [
-        {
-          name: "Pull-ups",
-          sets: 4,
           reps: "8-12",
           rest: "2 min",
-          video: "Pull-ups Video",
+          video: "Lat Pulldown",
           muscleGroup: "back",
         },
         {
-          name: "Bent-over Rows",
+          name: "Shoulder Press",
           sets: 3,
-          reps: "10-15",
+          reps: "8-12",
           rest: "2 min",
-          video: "Bent-over Rows Video",
-          muscleGroup: "back",
-        },
-        {
-          name: "Lat Pulldowns",
-          sets: 3,
-          reps: "12-15",
-          rest: "1.5 min",
-          video: "Lat Pulldowns Video",
-          muscleGroup: "back",
-        },
-        {
-          name: "T-Bar Rows",
-          sets: 3,
-          reps: "10-12",
-          rest: "2 min",
-          video: "T-Bar Rows Video",
-          muscleGroup: "back",
+          video: "Military Press",
+          muscleGroup: "shoulders",
         },
       ],
     },
-    cardio: {
-      title: "Cardio",
+    mobility: {
+      title: "Mobility Flow",
       exercises: [
         {
-          name: "Running",
-          sets: 1,
-          reps: "30 min",
-          rest: "0",
-          video: "Running Video",
-          muscleGroup: "cardio",
+          name: "Hip Openers",
+          sets: 2,
+          reps: "60s",
+          rest: "30s",
+          video: "Mobility",
+          muscleGroup: "mobility",
         },
         {
-          name: "Cycling",
-          sets: 1,
-          reps: "25 min",
-          rest: "0",
-          video: "Cycling Video",
-          muscleGroup: "cardio",
+          name: "Thoracic Twists",
+          sets: 2,
+          reps: "60s",
+          rest: "30s",
+          video: "Mobility",
+          muscleGroup: "mobility",
         },
         {
-          name: "Jump Rope",
-          sets: 1,
-          reps: "20 min",
-          rest: "0",
-          video: "Jump Rope Video",
-          muscleGroup: "cardio",
+          name: "Hamstring Stretch",
+          sets: 2,
+          reps: "60s",
+          rest: "30s",
+          video: "Mobility",
+          muscleGroup: "mobility",
+        },
+        {
+          name: "Ankle Mobility",
+          sets: 2,
+          reps: "60s",
+          rest: "30s",
+          video: "Mobility",
+          muscleGroup: "mobility",
+        },
+        {
+          name: "Hip Flexor Stretch",
+          sets: 2,
+          reps: "60s",
+          rest: "30s",
+          video: "Mobility",
+          muscleGroup: "mobility",
+        },
+      ],
+    },
+    explosive: {
+      title: "Explosive Training",
+      exercises: [
+        {
+          name: "Box Jumps",
+          sets: 4,
+          reps: "6-8",
+          rest: "2-3 min",
+          video: "Plyometrics",
+          muscleGroup: "legs",
+        },
+        {
+          name: "Sprints",
+          sets: 4,
+          reps: "3-4",
+          rest: "2-3 min",
+          video: "Sprint",
+          muscleGroup: "full",
+        },
+        {
+          name: "Medicine Ball Slams",
+          sets: 4,
+          reps: "8-10",
+          rest: "2 min",
+          video: "Plyometrics",
+          muscleGroup: "full",
+        },
+        {
+          name: "Broad Jumps",
+          sets: 4,
+          reps: "6-8",
+          rest: "2-3 min",
+          video: "Plyometrics",
+          muscleGroup: "legs",
+        },
+        {
+          name: "Plyo Push-ups",
+          sets: 3,
+          reps: "6-10",
+          rest: "2 min",
+          video: "Plyometrics",
+          muscleGroup: "chest",
         },
       ],
     },
@@ -298,6 +316,9 @@ export default function DashboardScreen() {
 
   const handleWorkoutPress = (workout: WorkoutDay) => {
     setSelectedWorkout(workout);
+    setWorkoutRunning(false);
+    setWorkoutStartAt(null);
+    setCompletedExercisesCount(0);
     setShowWorkoutModal(true);
   };
 
@@ -307,6 +328,79 @@ export default function DashboardScreen() {
     setTimerDuration(minutes * 60);
     setTimerTitle(`Rest: ${rest}`);
     setShowTimer(true);
+  };
+
+  const estimateCaloriesFor = (minutes: number, type: string) => {
+    // Simple estimation factors by workout type
+    const factors: Record<string, number> = {
+      cardio: 10,
+      weight: 8,
+      mobility: 5,
+      explosive: 11,
+      default: 7,
+    };
+    const f = factors[type] ?? factors.default;
+    return Math.round(minutes * f);
+  };
+
+  const handleStartWorkout = () => {
+    if (!workoutRunning) {
+      setWorkoutRunning(true);
+      setWorkoutStartAt(Date.now());
+      setCompletedExercisesCount(0);
+    }
+  };
+
+  const markExerciseCompleted = () => {
+    setCompletedExercisesCount((c) => c + 1);
+  };
+
+  const handleFinishWorkout = async () => {
+    const totalMs = workoutStartAt ? Date.now() - workoutStartAt : 0;
+    const totalMin = Math.max(1, Math.round(totalMs / 60000));
+
+    // Close first to avoid a re-render that shows Start button
+    setShowWorkoutModal(false);
+
+    // Persist completion
+    try {
+      if (selectedWorkout && userCalendar) {
+        const updated = { ...userCalendar } as any;
+        const todayIso = Object.keys(updated.plan || {}).find((iso: string) => {
+          const d = new Date(iso);
+          const dd = String(d.getDate()).padStart(2, "0");
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          return `${dd}.${mm}` === selectedWorkout.date;
+        });
+        if (todayIso && updated.plan[todayIso]) {
+          updated.plan[todayIso].completed = true;
+          const sessionType = selectedWorkout.type;
+          const calories = estimateCaloriesFor(totalMin, sessionType);
+          updated.plan[todayIso].stats = {
+            minutes: totalMin,
+            calories,
+            completedAt: new Date().toISOString(),
+          };
+          await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
+          setUserCalendar(updated);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // Reset flow state after close
+    setWorkoutRunning(false);
+    setWorkoutStartAt(null);
+    setSelectedWorkout(null);
+
+    // Notify user
+    setTimeout(() => {
+      Alert.alert(
+        "Workout Finished",
+        `Time: ${totalMin} min\nCompleted: ${completedExercisesCount}`
+      );
+    }, 0);
   };
 
   const getWorkoutIcon = (type: string) => {
@@ -470,6 +564,7 @@ export default function DashboardScreen() {
         date: `${dd}.${mm}`,
         workout: first?.name || "Workout",
         type: type as any,
+        completed: Boolean(dp.completed),
       });
     });
     return items;
@@ -477,18 +572,85 @@ export default function DashboardScreen() {
 
   function inferWorkoutType(muscles: string[]) {
     const m = muscles.join(" ").toLowerCase();
-    if (m.includes("leg")) return "legs";
-    if (m.includes("shoulder")) return "shoulders";
-    if (m.includes("back")) return "back";
-    if (m.includes("cardio")) return "cardio";
-    return "chest";
+    if (m.includes("cardio") || m.includes("run") || m.includes("bike"))
+      return "cardio";
+    if (m.includes("mobility") || m.includes("stretch")) return "mobility";
+    if (
+      m.includes("plyo") ||
+      m.includes("jump") ||
+      m.includes("sprint") ||
+      m.includes("explosive")
+    )
+      return "explosive";
+    return "weight";
   }
 
   const handleCalendarDatePress = (date: string) => {
     const workout = uiCalendarDays.find((w) => w.date === date);
-    if (workout) {
-      handleWorkoutPress(workout);
+    if (!workout) return;
+    // Prefer plan-driven details when available
+    const planObj = (userCalendar?.plan ?? {}) as Record<string, any>;
+    const maybePlanEntry = Object.values(planObj).find((p: any) => {
+      const d = new Date(p.date);
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      return `${dd}.${mm}` === date;
+    });
+    if (maybePlanEntry && maybePlanEntry.completed) {
+      openSummaryForDate(date);
+      return;
     }
+    if (maybePlanEntry) {
+      // Map entry to our WorkoutDay type for the modal
+      const first = maybePlanEntry.entries?.[0];
+      const type = inferWorkoutType(first?.muscleGroups || []);
+      handleWorkoutPress({
+        date,
+        workout: first?.name || workout.workout,
+        type: type as any,
+      });
+      return;
+    }
+    handleWorkoutPress(workout);
+  };
+
+  const openSummaryForDate = (date: string) => {
+    const planObj = (userCalendar?.plan ?? {}) as Record<string, any>;
+    // Selected day stats
+    let selectedMinutes: number | undefined;
+    let selectedCalories: number | undefined;
+    Object.values(planObj).forEach((p: any) => {
+      const d = new Date(p.date);
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const key = `${dd}.${mm}`;
+      if (key === date && p.completed && p.stats) {
+        selectedMinutes = p.stats.minutes;
+        selectedCalories = p.stats.calories;
+      }
+    });
+
+    // Totals across plan
+    let totalCompleted = 0;
+    let totalMinutes = 0;
+    let totalCalories = 0;
+    Object.values(planObj).forEach((p: any) => {
+      if (p.completed) {
+        totalCompleted += 1;
+        if (p.stats?.minutes) totalMinutes += p.stats.minutes;
+        if (p.stats?.calories) totalCalories += p.stats.calories;
+      }
+    });
+
+    setSummaryData({
+      selectedDate: date,
+      selectedMinutes,
+      selectedCalories,
+      totalCompleted,
+      totalMinutes,
+      totalCalories,
+    });
+    setShowSummaryModal(true);
   };
 
   const toggleDay = (day: string) => {
@@ -502,23 +664,22 @@ export default function DashboardScreen() {
     const today = new Date();
     const end = new Date();
     end.setDate(today.getDate() + 28);
-    const dayName = (d: Date) =>
-      ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
-    const pickExercises = buildExercisesFor(goal, level);
+    const dayIdx = (d: Date) => d.getDay(); // 0..6
+    const dowShort = (i: number) =>
+      ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][i];
+
     for (let dt = new Date(today); dt <= end; dt.setDate(dt.getDate() + 1)) {
-      const dn = dayName(dt);
-      const map: Record<string, string> = {
-        Mon: "Mon",
-        Tue: "Tue",
-        Wed: "Wed",
-        Thu: "Thu",
-        Fri: "Fri",
-        Sat: "Sat",
-        Sun: "Sun",
-      };
-      if (!selectedDays.includes(map[dn] ?? dn)) continue;
+      const di = dayIdx(dt);
+      const dn = dowShort(di);
+      if (!selectedDays.includes(dn)) continue;
       const iso = dt.toISOString().slice(0, 10);
-      plan[iso] = { date: iso, entries: pickExercises(), restAfterEachSec: 60 };
+
+      const dayPlan = buildDailyPlanForGoal(goal, level, di);
+      plan[iso] = {
+        date: iso,
+        entries: dayPlan.entries,
+        restAfterEachSec: dayPlan.restAfterEachSec,
+      };
     }
     const shareId = `ProFit-${Math.random()
       .toString(36)
@@ -537,11 +698,11 @@ export default function DashboardScreen() {
 
   const buildExercisesFor = (g: typeof goal, l: typeof level) => {
     const baseTime = {
-      amateur: 30,
-      beginner: 35,
-      medium: 40,
-      experienced: 45,
-      professional: 50,
+      amateur: 40,
+      beginner: 45,
+      medium: 50,
+      experienced: 55,
+      professional: 60,
     }[l];
     return () => {
       if (g === "weight_loss")
@@ -605,6 +766,366 @@ export default function DashboardScreen() {
       ];
     };
   };
+
+  // Build a varied day plan per goal and day-of-week
+  function buildDailyPlanForGoal(
+    g: typeof goal,
+    l: typeof level,
+    dayIndex: number
+  ): { entries: any[]; restAfterEachSec: number } {
+    const base = buildExercisesFor(g, l);
+    const variedRest = (type: string) =>
+      type === "cardio"
+        ? 30
+        : type === "mobility"
+        ? 20
+        : type === "explosive"
+        ? 90
+        : 60;
+
+    // Choose a focus by cycling through logical types across the week
+    const weeklyFocus: ("weight" | "cardio" | "mobility" | "explosive")[] = [
+      "weight",
+      "cardio",
+      "weight",
+      "mobility",
+      "weight",
+      "explosive",
+      "mobility",
+    ];
+    const focus = weeklyFocus[dayIndex];
+
+    // Start with goal-default set
+    let entries = base().map((e) => ({
+      name: e.name,
+      muscleGroups: e.muscleGroups,
+      equipment: e.equipment,
+      durationSec: e.durationSec,
+    }));
+
+    // Adjust entries to match daily focus and mix types for calendar icons
+    if (g === "weight_loss") {
+      if (focus === "cardio") {
+        entries = [
+          {
+            name: "Intervals",
+            muscleGroups: ["cardio"],
+            equipment: "None",
+            durationSec: 20 * 60,
+          },
+          {
+            name: "Tempo Run",
+            muscleGroups: ["cardio"],
+            equipment: "None",
+            durationSec: 25 * 60,
+          },
+          {
+            name: "Rowing Machine",
+            muscleGroups: ["cardio"],
+            equipment: "Gym",
+            durationSec: 12 * 60,
+          },
+        ];
+      } else if (focus === "mobility") {
+        entries = [
+          {
+            name: "Hip Openers",
+            muscleGroups: ["mobility"],
+            equipment: "None",
+            durationSec: 12 * 60,
+          },
+          {
+            name: "Thoracic Twists",
+            muscleGroups: ["mobility"],
+            equipment: "None",
+            durationSec: 12 * 60,
+          },
+          {
+            name: "Hamstring Stretch",
+            muscleGroups: ["mobility"],
+            equipment: "None",
+            durationSec: 8 * 60,
+          },
+        ];
+      } else if (focus === "explosive") {
+        entries = [
+          {
+            name: "Sprints",
+            muscleGroups: ["explosive"],
+            equipment: "None",
+            durationSec: 15 * 60,
+          },
+          {
+            name: "Box Jumps",
+            muscleGroups: ["explosive"],
+            equipment: "None",
+            durationSec: 10 * 60,
+          },
+          {
+            name: "Medicine Ball Slams",
+            muscleGroups: ["explosive"],
+            equipment: "Gym",
+            durationSec: 8 * 60,
+          },
+        ];
+      } else {
+        // weight focus but lighter for weight loss
+        entries = [
+          {
+            name: "Goblet Squat",
+            muscleGroups: ["legs"],
+            equipment: "Gym",
+            durationSec: 12 * 60,
+          },
+          {
+            name: "Incline DB Press",
+            muscleGroups: ["chest"],
+            equipment: "Gym",
+            durationSec: 12 * 60,
+          },
+          {
+            name: "Seated Cable Row",
+            muscleGroups: ["back"],
+            equipment: "Gym",
+            durationSec: 10 * 60,
+          },
+        ];
+      }
+    } else if (g === "muscle_gain") {
+      if (focus === "weight") {
+        entries = [
+          {
+            name: "Back Squat",
+            muscleGroups: ["legs"],
+            equipment: "Gym",
+            durationSec: 14 * 60,
+          },
+          {
+            name: "Bench Press",
+            muscleGroups: ["chest"],
+            equipment: "Gym",
+            durationSec: 14 * 60,
+          },
+          {
+            name: "Row",
+            muscleGroups: ["back"],
+            equipment: "Gym",
+            durationSec: 14 * 60,
+          },
+          {
+            name: "Lat Pulldown",
+            muscleGroups: ["back"],
+            equipment: "Gym",
+            durationSec: 10 * 60,
+          },
+        ];
+      } else if (focus === "mobility") {
+        entries = [
+          {
+            name: "Shoulder Mobility",
+            muscleGroups: ["mobility"],
+            equipment: "None",
+            durationSec: 14 * 60,
+          },
+          {
+            name: "Hip Mobility",
+            muscleGroups: ["mobility"],
+            equipment: "None",
+            durationSec: 14 * 60,
+          },
+          {
+            name: "Ankle Mobility",
+            muscleGroups: ["mobility"],
+            equipment: "None",
+            durationSec: 8 * 60,
+          },
+        ];
+      } else if (focus === "explosive") {
+        entries = [
+          {
+            name: "Power Clean (technique)",
+            muscleGroups: ["explosive"],
+            equipment: "Gym",
+            durationSec: 12 * 60,
+          },
+          {
+            name: "Broad Jumps",
+            muscleGroups: ["explosive"],
+            equipment: "None",
+            durationSec: 10 * 60,
+          },
+          {
+            name: "Kettlebell Swings",
+            muscleGroups: ["explosive"],
+            equipment: "Gym",
+            durationSec: 8 * 60,
+          },
+        ];
+      } else {
+        entries = [
+          {
+            name: "Tempo Run",
+            muscleGroups: ["cardio"],
+            equipment: "None",
+            durationSec: 20 * 60,
+          },
+          {
+            name: "Assault Bike",
+            muscleGroups: ["cardio"],
+            equipment: "Gym",
+            durationSec: 10 * 60,
+          },
+        ];
+      }
+    } else if (g === "strength") {
+      if (focus === "weight") {
+        entries = [
+          {
+            name: "Deadlift",
+            muscleGroups: ["back", "legs"],
+            equipment: "Gym",
+            durationSec: 18 * 60,
+          },
+          {
+            name: "Overhead Press",
+            muscleGroups: ["shoulders"],
+            equipment: "Gym",
+            durationSec: 14 * 60,
+          },
+          {
+            name: "Weighted Pull-ups",
+            muscleGroups: ["back"],
+            equipment: "Gym",
+            durationSec: 10 * 60,
+          },
+        ];
+      } else if (focus === "explosive") {
+        entries = [
+          {
+            name: "Sled Push",
+            muscleGroups: ["explosive"],
+            equipment: "Gym",
+            durationSec: 15 * 60,
+          },
+          {
+            name: "Box Jumps",
+            muscleGroups: ["explosive"],
+            equipment: "None",
+            durationSec: 10 * 60,
+          },
+          {
+            name: "Sprint Starts",
+            muscleGroups: ["explosive"],
+            equipment: "None",
+            durationSec: 6 * 60,
+          },
+        ];
+      } else if (focus === "mobility") {
+        entries = [
+          {
+            name: "Ankle Mobility",
+            muscleGroups: ["mobility"],
+            equipment: "None",
+            durationSec: 12 * 60,
+          },
+          {
+            name: "T-Spine Mobility",
+            muscleGroups: ["mobility"],
+            equipment: "None",
+            durationSec: 12 * 60,
+          },
+          {
+            name: "Hip Flexor Stretch",
+            muscleGroups: ["mobility"],
+            equipment: "None",
+            durationSec: 8 * 60,
+          },
+        ];
+      } else {
+        entries = [
+          {
+            name: "Intervals",
+            muscleGroups: ["cardio"],
+            equipment: "None",
+            durationSec: 16 * 60,
+          },
+          {
+            name: "Rower",
+            muscleGroups: ["cardio"],
+            equipment: "Gym",
+            durationSec: 8 * 60,
+          },
+        ];
+      }
+    } else {
+      // maintenance
+      if (focus === "weight") {
+        entries = [
+          {
+            name: "Full-body Circuit",
+            muscleGroups: ["full"],
+            equipment: "Gym",
+            durationSec: 25 * 60,
+          },
+          {
+            name: "Core Finisher",
+            muscleGroups: ["abs"],
+            equipment: "None",
+            durationSec: 8 * 60,
+          },
+        ];
+      } else if (focus === "cardio") {
+        entries = [
+          {
+            name: "Cycling",
+            muscleGroups: ["cardio"],
+            equipment: "None",
+            durationSec: 25 * 60,
+          },
+          {
+            name: "Incline Walk",
+            muscleGroups: ["cardio"],
+            equipment: "Gym",
+            durationSec: 10 * 60,
+          },
+        ];
+      } else if (focus === "mobility") {
+        entries = [
+          {
+            name: "Mobility Flow",
+            muscleGroups: ["mobility"],
+            equipment: "None",
+            durationSec: 18 * 60,
+          },
+          {
+            name: "Neck Mobility",
+            muscleGroups: ["mobility"],
+            equipment: "None",
+            durationSec: 6 * 60,
+          },
+        ];
+      } else {
+        entries = [
+          {
+            name: "Sprints",
+            muscleGroups: ["explosive"],
+            equipment: "None",
+            durationSec: 12 * 60,
+          },
+          {
+            name: "Plyo Push-ups",
+            muscleGroups: ["explosive"],
+            equipment: "None",
+            durationSec: 6 * 60,
+          },
+        ];
+      }
+    }
+
+    // Determine rest based on dominant type to guide rest timer
+    const dominantType = inferWorkoutType(entries[0]?.muscleGroups || []);
+    return { entries, restAfterEachSec: variedRest(dominantType) };
+  }
 
   const handleJoinCalendar = async () => {
     const code = joinCode.trim();
@@ -696,9 +1217,11 @@ export default function DashboardScreen() {
     persistTraineeSettings({ goal: goalId });
   };
 
-  const handleVideoPress = (exerciseName: string) => {
+  const handleVideoPress = (exerciseName: string, equipment?: string) => {
     const video = getVideoByExerciseName(exerciseName);
     if (video) {
+      // attach equipment info temporarily on the video object for modal
+      (video as any)._equipment = equipment;
       setSelectedVideo(video);
       setShowVideoPlayer(true);
     }
@@ -1378,8 +1901,23 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Muscle Group Indicator */}
-            {selectedWorkout && (
+            {!workoutRunning && (
+              <TouchableOpacity
+                style={[
+                  styles.timerButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={() => setWorkoutRunning(true)}
+                activeOpacity={0.9}
+              >
+                <Ionicons name="play" size={16} color={colors.black} />
+                <Text style={[styles.timerButtonText, { color: colors.black }]}>
+                  Start Workout
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {workoutRunning && selectedWorkout && (
               <View
                 style={[
                   styles.muscleGroupIndicator,
@@ -1427,252 +1965,426 @@ export default function DashboardScreen() {
               </View>
             )}
 
-            <ScrollView style={styles.modalBody}>
-              {selectedWorkout &&
-                workoutDetails[selectedWorkout.type]?.exercises.map(
-                  (exercise, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.exerciseCard,
-                        { backgroundColor: colors.lightGray },
-                      ]}
-                    >
-                      <View style={styles.exerciseHeader}>
-                        <View style={styles.exerciseTitleContainer}>
-                          <Text
+            {workoutRunning && (
+              <ScrollView style={styles.modalBody}>
+                {selectedWorkout &&
+                  workoutDetails[selectedWorkout.type]?.exercises.map(
+                    (exercise, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.exerciseCard,
+                          { backgroundColor: colors.lightGray },
+                        ]}
+                      >
+                        <View style={styles.exerciseHeader}>
+                          <View style={styles.exerciseTitleContainer}>
+                            <Text
+                              style={[
+                                styles.exerciseName,
+                                { color: colors.text },
+                              ]}
+                            >
+                              {exercise.name}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
                             style={[
-                              styles.exerciseName,
-                              { color: colors.text },
+                              styles.videoButton,
+                              { backgroundColor: colors.lightGray },
                             ]}
+                            onPress={() =>
+                              handleVideoPress(
+                                exercise.name,
+                                exercise.equipment as any
+                              )
+                            }
                           >
-                            {exercise.name}
-                          </Text>
+                            <Ionicons
+                              name="play"
+                              size={16}
+                              color={colors.primary}
+                            />
+                            <Text
+                              style={[
+                                styles.videoButtonText,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              Video
+                            </Text>
+                          </TouchableOpacity>
                         </View>
+
+                        {/* Exercise Muscle Groups */}
+                        <View style={styles.exerciseMuscleGroups}>
+                          {exercise.name === "Bench Press" && (
+                            <>
+                              <View style={styles.exerciseMuscleItem}>
+                                <Image
+                                  source={require("../../assets/images/muscles.png")}
+                                  style={styles.exerciseMuscleIcon}
+                                />
+                                <Text
+                                  style={[
+                                    styles.exerciseMuscleName,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  Triceps
+                                </Text>
+                              </View>
+                              <View style={styles.exerciseMuscleItem}>
+                                <Image
+                                  source={require("../../assets/images/gym.png")}
+                                  style={styles.exerciseMuscleIcon}
+                                />
+                                <Text
+                                  style={[
+                                    styles.exerciseMuscleName,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  Chest
+                                </Text>
+                              </View>
+                              <View style={styles.exerciseMuscleItem}>
+                                <Image
+                                  source={require("../../assets/images/shoulder.png")}
+                                  style={styles.exerciseMuscleIcon}
+                                />
+                                <Text
+                                  style={[
+                                    styles.exerciseMuscleName,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  Shoulders
+                                </Text>
+                              </View>
+                            </>
+                          )}
+                          {exercise.name === "Cable Fly" && (
+                            <>
+                              <View style={styles.exerciseMuscleItem}>
+                                <Image
+                                  source={require("../../assets/images/gym.png")}
+                                  style={styles.exerciseMuscleIcon}
+                                />
+                                <Text
+                                  style={[
+                                    styles.exerciseMuscleName,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  Chest
+                                </Text>
+                              </View>
+                              <View style={styles.exerciseMuscleItem}>
+                                <Image
+                                  source={require("../../assets/images/shoulder.png")}
+                                  style={styles.exerciseMuscleIcon}
+                                />
+                                <Text
+                                  style={[
+                                    styles.exerciseMuscleName,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  Shoulders
+                                </Text>
+                              </View>
+                            </>
+                          )}
+                          {exercise.name === "Push-ups" && (
+                            <>
+                              <View style={styles.exerciseMuscleItem}>
+                                <Image
+                                  source={require("../../assets/images/muscles.png")}
+                                  style={styles.exerciseMuscleIcon}
+                                />
+                                <Text
+                                  style={[
+                                    styles.exerciseMuscleName,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  Triceps
+                                </Text>
+                              </View>
+                              <View style={styles.exerciseMuscleItem}>
+                                <Image
+                                  source={require("../../assets/images/gym.png")}
+                                  style={styles.exerciseMuscleIcon}
+                                />
+                                <Text
+                                  style={[
+                                    styles.exerciseMuscleName,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  Chest
+                                </Text>
+                              </View>
+                              <View style={styles.exerciseMuscleItem}>
+                                <Image
+                                  source={require("../../assets/images/shoulder.png")}
+                                  style={styles.exerciseMuscleIcon}
+                                />
+                                <Text
+                                  style={[
+                                    styles.exerciseMuscleName,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  Shoulders
+                                </Text>
+                              </View>
+                            </>
+                          )}
+                        </View>
+
+                        <View style={styles.exerciseDetails}>
+                          <View style={styles.exerciseDetail}>
+                            <Text
+                              style={[
+                                styles.detailLabel,
+                                { color: colors.text },
+                              ]}
+                            >
+                              Sets:
+                            </Text>
+                            <Text
+                              style={[
+                                styles.detailValue,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              {exercise.sets}
+                            </Text>
+                          </View>
+                          <View style={styles.exerciseDetail}>
+                            <Text
+                              style={[
+                                styles.detailLabel,
+                                { color: colors.text },
+                              ]}
+                            >
+                              Reps:
+                            </Text>
+                            <Text
+                              style={[
+                                styles.detailValue,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              {exercise.reps}
+                            </Text>
+                          </View>
+                          <View style={styles.exerciseDetail}>
+                            <Text
+                              style={[
+                                styles.detailLabel,
+                                { color: colors.text },
+                              ]}
+                            >
+                              Rest:
+                            </Text>
+                            <Text
+                              style={[
+                                styles.detailValue,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              {exercise.rest}
+                            </Text>
+                          </View>
+                        </View>
+
                         <TouchableOpacity
                           style={[
-                            styles.videoButton,
+                            styles.timerButton,
                             { backgroundColor: colors.lightGray },
                           ]}
-                          onPress={() => handleVideoPress(exercise.name)}
+                          onPress={() => handleTimerPress(exercise.rest)}
                         >
                           <Ionicons
-                            name="play"
+                            name="timer-outline"
+                            size={16}
+                            color={colors.secondary}
+                          />
+                          <Text
+                            style={[
+                              styles.timerButtonText,
+                              { color: colors.secondary },
+                            ]}
+                          >
+                            Start Timer
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.timerButton,
+                            { backgroundColor: colors.darkGray },
+                          ]}
+                          onPress={markExerciseCompleted}
+                        >
+                          <Ionicons
+                            name="checkmark"
                             size={16}
                             color={colors.primary}
                           />
                           <Text
                             style={[
-                              styles.videoButtonText,
+                              styles.timerButtonText,
                               { color: colors.primary },
                             ]}
                           >
-                            Video
+                            Mark Completed
                           </Text>
                         </TouchableOpacity>
                       </View>
+                    )
+                  )}
+              </ScrollView>
+            )}
 
-                      {/* Exercise Muscle Groups */}
-                      <View style={styles.exerciseMuscleGroups}>
-                        {exercise.name === "Bench Press" && (
-                          <>
-                            <View style={styles.exerciseMuscleItem}>
-                              <Image
-                                source={require("../../assets/images/muscles.png")}
-                                style={styles.exerciseMuscleIcon}
-                              />
-                              <Text
-                                style={[
-                                  styles.exerciseMuscleName,
-                                  { color: colors.text },
-                                ]}
-                              >
-                                Triceps
-                              </Text>
-                            </View>
-                            <View style={styles.exerciseMuscleItem}>
-                              <Image
-                                source={require("../../assets/images/gym.png")}
-                                style={styles.exerciseMuscleIcon}
-                              />
-                              <Text
-                                style={[
-                                  styles.exerciseMuscleName,
-                                  { color: colors.text },
-                                ]}
-                              >
-                                Chest
-                              </Text>
-                            </View>
-                            <View style={styles.exerciseMuscleItem}>
-                              <Image
-                                source={require("../../assets/images/shoulder.png")}
-                                style={styles.exerciseMuscleIcon}
-                              />
-                              <Text
-                                style={[
-                                  styles.exerciseMuscleName,
-                                  { color: colors.text },
-                                ]}
-                              >
-                                Shoulders
-                              </Text>
-                            </View>
-                          </>
-                        )}
-                        {exercise.name === "Cable Fly" && (
-                          <>
-                            <View style={styles.exerciseMuscleItem}>
-                              <Image
-                                source={require("../../assets/images/gym.png")}
-                                style={styles.exerciseMuscleIcon}
-                              />
-                              <Text
-                                style={[
-                                  styles.exerciseMuscleName,
-                                  { color: colors.text },
-                                ]}
-                              >
-                                Chest
-                              </Text>
-                            </View>
-                            <View style={styles.exerciseMuscleItem}>
-                              <Image
-                                source={require("../../assets/images/shoulder.png")}
-                                style={styles.exerciseMuscleIcon}
-                              />
-                              <Text
-                                style={[
-                                  styles.exerciseMuscleName,
-                                  { color: colors.text },
-                                ]}
-                              >
-                                Shoulders
-                              </Text>
-                            </View>
-                          </>
-                        )}
-                        {exercise.name === "Push-ups" && (
-                          <>
-                            <View style={styles.exerciseMuscleItem}>
-                              <Image
-                                source={require("../../assets/images/muscles.png")}
-                                style={styles.exerciseMuscleIcon}
-                              />
-                              <Text
-                                style={[
-                                  styles.exerciseMuscleName,
-                                  { color: colors.text },
-                                ]}
-                              >
-                                Triceps
-                              </Text>
-                            </View>
-                            <View style={styles.exerciseMuscleItem}>
-                              <Image
-                                source={require("../../assets/images/gym.png")}
-                                style={styles.exerciseMuscleIcon}
-                              />
-                              <Text
-                                style={[
-                                  styles.exerciseMuscleName,
-                                  { color: colors.text },
-                                ]}
-                              >
-                                Chest
-                              </Text>
-                            </View>
-                            <View style={styles.exerciseMuscleItem}>
-                              <Image
-                                source={require("../../assets/images/shoulder.png")}
-                                style={styles.exerciseMuscleIcon}
-                              />
-                              <Text
-                                style={[
-                                  styles.exerciseMuscleName,
-                                  { color: colors.text },
-                                ]}
-                              >
-                                Shoulders
-                              </Text>
-                            </View>
-                          </>
-                        )}
-                      </View>
+            {workoutRunning && (
+              <TouchableOpacity
+                style={[
+                  styles.timerButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleFinishWorkout}
+              >
+                <Ionicons name="flag" size={16} color={colors.black} />
+                <Text style={[styles.timerButtonText, { color: colors.black }]}>
+                  Finish Workout
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
 
-                      <View style={styles.exerciseDetails}>
-                        <View style={styles.exerciseDetail}>
-                          <Text
-                            style={[styles.detailLabel, { color: colors.text }]}
-                          >
-                            Sets:
-                          </Text>
-                          <Text
-                            style={[
-                              styles.detailValue,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {exercise.sets}
-                          </Text>
-                        </View>
-                        <View style={styles.exerciseDetail}>
-                          <Text
-                            style={[styles.detailLabel, { color: colors.text }]}
-                          >
-                            Reps:
-                          </Text>
-                          <Text
-                            style={[
-                              styles.detailValue,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {exercise.reps}
-                          </Text>
-                        </View>
-                        <View style={styles.exerciseDetail}>
-                          <Text
-                            style={[styles.detailLabel, { color: colors.text }]}
-                          >
-                            Rest:
-                          </Text>
-                          <Text
-                            style={[
-                              styles.detailValue,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {exercise.rest}
-                          </Text>
-                        </View>
-                      </View>
+      {/* Completed Day Summary Modal */}
+      <Modal
+        visible={showSummaryModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowSummaryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Workout Summary
+              </Text>
+              <TouchableOpacity onPress={() => setShowSummaryModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
 
-                      <TouchableOpacity
-                        style={[
-                          styles.timerButton,
-                          { backgroundColor: colors.lightGray },
-                        ]}
-                        onPress={() => handleTimerPress(exercise.rest)}
-                      >
-                        <Ionicons
-                          name="timer-outline"
-                          size={16}
-                          color={colors.secondary}
-                        />
-                        <Text
-                          style={[
-                            styles.timerButtonText,
-                            { color: colors.secondary },
-                          ]}
-                        >
-                          Start Timer
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )
-                )}
-            </ScrollView>
+            <View style={{ gap: 12 }}>
+              {summaryData.selectedDate && (
+                <Text style={{ color: colors.text }}>
+                  Date: {summaryData.selectedDate}
+                </Text>
+              )}
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
+                <Ionicons name="fitness" size={18} color={colors.primary} />
+                <Text style={{ color: colors.text }}>
+                  Completed workouts: {summaryData.totalCompleted}
+                </Text>
+              </View>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
+                <Ionicons
+                  name="time-outline"
+                  size={18}
+                  color={colors.secondary}
+                />
+                <Text style={{ color: colors.text }}>
+                  Total minutes: {summaryData.totalMinutes}
+                </Text>
+              </View>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
+                <Ionicons name="flame" size={18} color={colors.accent} />
+                <Text style={{ color: colors.text }}>
+                  Total calories: {summaryData.totalCalories}
+                </Text>
+              </View>
+
+              {(summaryData.selectedMinutes ||
+                summaryData.selectedCalories) && (
+                <View style={{ marginTop: 10 }}>
+                  <Text
+                    style={[
+                      styles.modalTitle,
+                      { color: colors.text, fontSize: 16 },
+                    ]}
+                  >
+                    Selected Day
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      marginTop: 6,
+                    }}
+                  >
+                    <Ionicons
+                      name="time-outline"
+                      size={16}
+                      color={colors.secondary}
+                    />
+                    <Text style={{ color: colors.text }}>
+                      Minutes: {summaryData.selectedMinutes ?? 0}
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      marginTop: 4,
+                    }}
+                  >
+                    <Ionicons name="flame" size={16} color={colors.accent} />
+                    <Text style={{ color: colors.text }}>
+                      Calories: {summaryData.selectedCalories ?? 0}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setShowSummaryModal(false)}
+              style={{
+                marginTop: 16,
+                alignSelf: "flex-end",
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                borderRadius: 10,
+                backgroundColor: colors.primary,
+              }}
+            >
+              <Text style={{ color: colors.black, fontWeight: "600" }}>
+                Close
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1868,6 +2580,7 @@ export default function DashboardScreen() {
         visible={showVideoPlayer}
         onClose={() => setShowVideoPlayer(false)}
         video={selectedVideo}
+        equipment={(selectedVideo as any)?._equipment}
       />
 
       {/* Floating Chat Button removed */}
