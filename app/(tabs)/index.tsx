@@ -85,6 +85,9 @@ export default function DashboardScreen() {
     totalMinutes: number;
     totalCalories: number;
   }>({ totalCompleted: 0, totalMinutes: 0, totalCalories: 0 });
+  const [completedExerciseIdxs, setCompletedExerciseIdxs] = useState<
+    Set<number>
+  >(new Set());
   const [goal, setGoal] = useState<
     "weight_loss" | "muscle_gain" | "maintenance" | "strength"
   >("weight_loss");
@@ -319,13 +322,29 @@ export default function DashboardScreen() {
     setWorkoutRunning(false);
     setWorkoutStartAt(null);
     setCompletedExercisesCount(0);
+    setCompletedExerciseIdxs(new Set());
     setShowWorkoutModal(true);
   };
 
+  function parseRestToSeconds(rest: string | undefined | null): number {
+    if (!rest || rest.trim() === "" || rest.trim() === "-") {
+      return 60; // sensible default
+    }
+    const s = rest.trim().toLowerCase();
+    // Examples: "30s", "45 s", "2 min", "2-3 min", "2–3 min"
+    // Extract first integer occurrence
+    const match = s.match(/(\d+)/);
+    const num = match ? parseInt(match[1], 10) : NaN;
+    if (!isNaN(num)) {
+      if (s.includes("s")) return num; // seconds variants
+      if (s.includes("min")) return num * 60; // minutes variants
+    }
+    return 60; // fallback
+  }
+
   const handleTimerPress = (rest: string) => {
-    // Convert rest time to seconds (e.g., "2 min" -> 120 seconds)
-    const minutes = parseInt(rest.split(" ")[0]);
-    setTimerDuration(minutes * 60);
+    const seconds = parseRestToSeconds(rest);
+    setTimerDuration(seconds);
     setTimerTitle(`Rest: ${rest}`);
     setShowTimer(true);
   };
@@ -353,6 +372,20 @@ export default function DashboardScreen() {
 
   const markExerciseCompleted = () => {
     setCompletedExercisesCount((c) => c + 1);
+  };
+
+  const toggleExerciseCompleted = (index: number) => {
+    setCompletedExerciseIdxs((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+        setCompletedExercisesCount((c) => Math.max(0, c - 1));
+      } else {
+        next.add(index);
+        setCompletedExercisesCount((c) => c + 1);
+      }
+      return next;
+    });
   };
 
   const handleFinishWorkout = async () => {
@@ -597,7 +630,15 @@ export default function DashboardScreen() {
       return `${dd}.${mm}` === date;
     });
     if (maybePlanEntry && maybePlanEntry.completed) {
-      openSummaryForDate(date);
+      Alert.alert("Completed Day", "This workout is marked as completed.", [
+        { text: "View Summary", onPress: () => openSummaryForDate(date) },
+        {
+          text: "Unmark",
+          style: "destructive",
+          onPress: () => unmarkCompleted(date),
+        },
+        { text: "Cancel", style: "cancel" },
+      ]);
       return;
     }
     if (maybePlanEntry) {
@@ -612,6 +653,27 @@ export default function DashboardScreen() {
       return;
     }
     handleWorkoutPress(workout);
+  };
+
+  const unmarkCompleted = async (date: string) => {
+    try {
+      if (!userCalendar) return;
+      const updated = { ...userCalendar } as any;
+      const todayIso = Object.keys(updated.plan || {}).find((iso: string) => {
+        const d = new Date(iso);
+        const dd = String(d.getDate()).padStart(2, "0");
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        return `${dd}.${mm}` === date;
+      });
+      if (todayIso && updated.plan[todayIso]) {
+        updated.plan[todayIso].completed = false;
+        delete updated.plan[todayIso].stats;
+        await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
+        setUserCalendar(updated);
+      }
+    } catch (e) {
+      // ignore
+    }
   };
 
   const openSummaryForDate = (date: string) => {
@@ -2227,10 +2289,14 @@ export default function DashboardScreen() {
                             styles.timerButton,
                             { backgroundColor: colors.darkGray },
                           ]}
-                          onPress={markExerciseCompleted}
+                          onPress={() => toggleExerciseCompleted(index)}
                         >
                           <Ionicons
-                            name="checkmark"
+                            name={
+                              completedExerciseIdxs.has(index)
+                                ? "checkbox"
+                                : "square-outline"
+                            }
                             size={16}
                             color={colors.primary}
                           />
@@ -2240,7 +2306,9 @@ export default function DashboardScreen() {
                               { color: colors.primary },
                             ]}
                           >
-                            Mark Completed
+                            {completedExerciseIdxs.has(index)
+                              ? "Completed"
+                              : "Mark Completed"}
                           </Text>
                         </TouchableOpacity>
                       </View>
