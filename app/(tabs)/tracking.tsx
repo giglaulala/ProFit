@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import Colors from "../../constants/Colors";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { supabase } from "../../lib/supabase";
 
 const { width } = Dimensions.get("window");
@@ -21,6 +22,7 @@ const { width } = Dimensions.get("window");
 export default function TrackingScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
+  const { t } = useLanguage();
   const [inputCode, setInputCode] = useState("");
 
   // Supabase data state
@@ -31,19 +33,19 @@ export default function TrackingScreen() {
 
   const trackingFeatures = [
     {
-      title: "Scan Workout QR",
+      title: t("tracking.scanWorkoutQR"),
       icon: "qr-code-outline",
       color: colors.primary,
       action: "scan",
     },
     {
-      title: "Record Weight",
+      title: t("tracking.recordWeight"),
       icon: "scale",
       color: colors.accent,
       action: "weight",
     },
     {
-      title: "Body Measurements",
+      title: t("tracking.bodyMeasurements"),
       icon: "resize",
       color: colors.darkGreen,
       action: "measurements",
@@ -129,17 +131,17 @@ export default function TrackingScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>
-            ProFit Tracking
+            {t("tracking.title")}
           </Text>
           <Text style={[styles.subtitle, { color: colors.text }]}>
-            Monitor your fitness journey
+            {t("tracking.subtitle")}
           </Text>
         </View>
 
         {/* Tracking Features */}
         <View style={styles.featuresContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Quick Actions
+            {t("tracking.quickActions")}
           </Text>
           <View style={styles.featuresGrid}>
             {trackingFeatures.map((feature, index) => (

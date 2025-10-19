@@ -17,14 +17,15 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import Colors from "../../constants/Colors";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { supabase } from "../../lib/supabase";
 
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
+  const { language, setLanguage, t } = useLanguage();
   const [notifications, setNotifications] = useState(true);
   const [userData, setUserData] = useState<any>(null);
-  const [language, setLanguage] = useState<"en" | "ka">("en");
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
 
@@ -39,7 +40,6 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     loadUserData();
-    loadLanguage();
   }, []);
 
   const loadUserData = async () => {
@@ -102,35 +102,26 @@ export default function ProfileScreen() {
     }
   };
 
-  const loadLanguage = async () => {
-    try {
-      const saved = await AsyncStorage.getItem("appLanguage");
-      if (saved === "en" || saved === "ka") {
-        setLanguage(saved);
-      }
-    } catch (error) {
-      console.error("Error loading language:", error);
-    }
-  };
-
   const handleLanguageChange = async (lang: "en" | "ka") => {
     try {
-      setLanguage(lang);
-      await AsyncStorage.setItem("appLanguage", lang);
-      Alert.alert("Language", `Language changed to ${lang.toUpperCase()}`);
+      await setLanguage(lang);
+      Alert.alert(
+        t("profile.language"),
+        `${t("profile.language")} changed to ${lang.toUpperCase()}`
+      );
     } catch (error) {
       console.error("Error saving language:", error);
     }
   };
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
+    Alert.alert(t("profile.logOut"), t("profile.logoutConfirm"), [
       {
-        text: "Cancel",
+        text: t("profile.cancel"),
         style: "cancel",
       },
       {
-        text: "Logout",
+        text: t("profile.logout"),
         style: "destructive",
         onPress: async () => {
           try {
@@ -156,11 +147,13 @@ export default function ProfileScreen() {
   };
 
   const userStats = [
-    { label: "Total Workouts", value: totalWorkouts.toString() },
-    { label: "Workout Hours", value: formatMinutes(totalMinutes) },
+    { label: t("profile.totalWorkouts"), value: totalWorkouts.toString() },
+    { label: t("profile.workoutHours"), value: formatMinutes(totalMinutes) },
   ];
 
-  const menuItems = [{ title: "Edit Profile", icon: "person", action: "edit" }];
+  const menuItems = [
+    { title: t("profile.editProfile"), icon: "person", action: "edit" },
+  ];
 
   return (
     <SafeAreaView
@@ -181,7 +174,7 @@ export default function ProfileScreen() {
             {`${firstName || "Name"} ${lastName || "Surname"}`.trim()}
           </Text>
           <Text style={[styles.userLevel, { color: colors.primary }]}>
-            Subscription: {userData?.subscription ?? "Free"}
+            {t("profile.subscription")}: {userData?.subscription ?? "Free"}
           </Text>
           <Text style={[styles.userBio, { color: colors.text }]}>
             {userData?.email ?? "user@example.com"}
@@ -212,7 +205,7 @@ export default function ProfileScreen() {
         {/* Menu Items (Account) */}
         <View style={styles.menuContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Account
+            {t("profile.account")}
           </Text>
           <View
             style={[styles.menuCard, { backgroundColor: colors.lightGray }]}
@@ -257,7 +250,7 @@ export default function ProfileScreen() {
         {/* Settings (moved below Account) */}
         <View style={styles.settingsContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Settings
+            {t("profile.settings")}
           </Text>
           <View
             style={[styles.settingsCard, { backgroundColor: colors.lightGray }]}
@@ -270,7 +263,7 @@ export default function ProfileScreen() {
                   color={colors.primary}
                 />
                 <Text style={[styles.settingTitle, { color: colors.text }]}>
-                  Notifications
+                  {t("profile.notifications")}
                 </Text>
               </View>
               <Switch
@@ -284,7 +277,7 @@ export default function ProfileScreen() {
               <View style={styles.settingLeft}>
                 <Ionicons name="language" size={20} color={colors.secondary} />
                 <Text style={[styles.settingTitle, { color: colors.text }]}>
-                  Language
+                  {t("profile.language")}
                 </Text>
               </View>
               <View style={styles.languageToggleContainer}>
@@ -340,7 +333,7 @@ export default function ProfileScreen() {
           >
             <Ionicons name="log-out" size={20} color={colors.background} />
             <Text style={[styles.logoutText, { color: colors.background }]}>
-              Log Out
+              {t("profile.logOut")}
             </Text>
           </TouchableOpacity>
         </View>

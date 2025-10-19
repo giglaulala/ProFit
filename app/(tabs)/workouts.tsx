@@ -21,10 +21,12 @@ import {
   getVideoByExerciseName,
   workoutVideos,
 } from "../../constants/WorkoutVideos";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 export default function WorkoutsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState<"gym" | "home">("gym");
   const [mode, setMode] = useState<"body" | "category">("body");
@@ -229,10 +231,10 @@ export default function WorkoutsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>
-            ProFit Workouts
+            {t("workouts.title")}
           </Text>
           <Text style={[styles.subtitle, { color: colors.text }]}>
-            Choose your next challenge
+            {t("workouts.subtitle")}
           </Text>
         </View>
 
@@ -261,7 +263,9 @@ export default function WorkoutsScreen() {
                     },
                   ]}
                 >
-                  {opt === "gym" ? "In Gym" : "Without Gym"}
+                  {opt === "gym"
+                    ? t("workouts.inGym")
+                    : t("workouts.withoutGym")}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -294,7 +298,7 @@ export default function WorkoutsScreen() {
                     { color: mode === opt ? colors.black : colors.text },
                   ]}
                 >
-                  {opt === "body" ? "Body" : "Category"}
+                  {opt === "body" ? t("workouts.body") : t("workouts.category")}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -304,7 +308,9 @@ export default function WorkoutsScreen() {
         {/* Selector Grid */}
         <View style={styles.categoriesContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {mode === "body" ? "Body Selection" : "Categories"}
+            {mode === "body"
+              ? t("workouts.bodySelection")
+              : t("workouts.categories")}
           </Text>
           <View style={styles.categoriesGrid}>
             {(mode === "body" ? filteredBodies : filteredCategories).map(
@@ -354,11 +360,11 @@ export default function WorkoutsScreen() {
         {(selectedBody || selectedCategory) && (
           <View style={styles.popularContainer}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Videos
+              {t("workouts.videos")}
             </Text>
             {currentVideos.length === 0 ? (
               <Text style={{ color: colors.text, opacity: 0.7 }}>
-                No videos for this selection.
+                {t("workouts.noVideos")}
               </Text>
             ) : (
               currentVideos.map((v) => (
@@ -407,7 +413,7 @@ export default function WorkoutsScreen() {
         {/* Expandable Flows (replace Popular Workouts) */}
         <View style={styles.popularContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Popular Workouts
+            {t("workouts.popularWorkouts")}
           </Text>
           {flows
             .filter((f) =>
@@ -450,7 +456,10 @@ export default function WorkoutsScreen() {
                             { color: colors.text },
                           ]}
                         >
-                          Tap to {isOpen ? "collapse" : "expand"}
+                          Tap to{" "}
+                          {isOpen
+                            ? t("workouts.tapToCollapse")
+                            : t("workouts.tapToExpand")}
                         </Text>
                       </View>
                       <Ionicons
@@ -504,7 +513,7 @@ export default function WorkoutsScreen() {
                                   { color: colors.text },
                                 ]}
                               >
-                                Video
+                                {t("workouts.video")}
                               </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -541,7 +550,7 @@ export default function WorkoutsScreen() {
         {/* Quick Start */}
         <View style={styles.quickStartContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Quick Start
+            {t("workouts.quickStart")}
           </Text>
           <TouchableOpacity
             style={[
@@ -553,12 +562,12 @@ export default function WorkoutsScreen() {
             <View style={styles.quickStartContent}>
               <View>
                 <Text style={[styles.quickStartTitle, { color: colors.text }]}>
-                  Start Random Workout
+                  {t("workouts.startRandomWorkout")}
                 </Text>
                 <Text
                   style={[styles.quickStartSubtitle, { color: colors.text }]}
                 >
-                  Let us choose the perfect workout for you
+                  {t("workouts.randomWorkoutSubtitle")}
                 </Text>
               </View>
               <Ionicons name="shuffle" size={24} color={colors.primary} />
@@ -583,7 +592,7 @@ export default function WorkoutsScreen() {
             />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
-              placeholder="SEARCH WORKOUTS..."
+              placeholder={t("workouts.searchPlaceholder")}
               placeholderTextColor={colors.text + "80"}
               value={searchQuery}
               onChangeText={handleSearch}

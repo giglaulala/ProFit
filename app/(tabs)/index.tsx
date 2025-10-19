@@ -25,6 +25,7 @@ import {
   getVideoByExerciseName,
   WorkoutVideo,
 } from "../../constants/WorkoutVideos";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { supabase } from "../../lib/supabase";
 
 const { width } = Dimensions.get("window");
@@ -54,6 +55,7 @@ interface WorkoutDetails {
 export default function DashboardScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
+  const { t } = useLanguage();
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutDay | null>(
     null
@@ -450,7 +452,7 @@ export default function DashboardScreen() {
     // Notify user
     setTimeout(() => {
       Alert.alert(
-        "Workout Finished",
+        t("dashboard.workoutFinished"),
         `Time: ${totalMin} min\nCompleted: ${completedExercisesCount}`
       );
     }, 0);
@@ -657,15 +659,22 @@ export default function DashboardScreen() {
       return `${dd}.${mm}` === date;
     });
     if (maybePlanEntry && maybePlanEntry.completed) {
-      Alert.alert("Completed Day", "This workout is marked as completed.", [
-        { text: "View Summary", onPress: () => openSummaryForDate(date) },
-        {
-          text: "Unmark",
-          style: "destructive",
-          onPress: () => unmarkCompleted(date),
-        },
-        { text: "Cancel", style: "cancel" },
-      ]);
+      Alert.alert(
+        t("dashboard.completed"),
+        "This workout is marked as completed.",
+        [
+          {
+            text: t("dashboard.viewSummary"),
+            onPress: () => openSummaryForDate(date),
+          },
+          {
+            text: t("dashboard.unmark"),
+            style: "destructive",
+            onPress: () => unmarkCompleted(date),
+          },
+          { text: t("dashboard.cancel"), style: "cancel" },
+        ]
+      );
       return;
     }
     if (maybePlanEntry) {
@@ -1823,7 +1832,7 @@ export default function DashboardScreen() {
         {/* Progress - This Week */}
         <View style={styles.progressChartContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            This Week
+            {t("dashboard.thisWeek")}
           </Text>
           <View
             style={[
@@ -1908,23 +1917,23 @@ export default function DashboardScreen() {
         {/* Monthly Goals */}
         <View style={styles.progressGoalsContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Monthly Goals
+            {t("dashboard.monthlyGoals")}
           </Text>
           {[
             {
-              title: "Workouts",
+              title: t("dashboard.workouts"),
               current: monthlyProgress.workoutsCompleted,
               target: monthlyGoals.workoutGoal,
               icon: "fitness",
             },
             {
-              title: "Calories",
+              title: t("dashboard.calories"),
               current: monthlyProgress.caloriesBurned,
               target: monthlyGoals.calorieGoal,
               icon: "flame",
             },
             {
-              title: "Minutes",
+              title: t("dashboard.minutes"),
               current: monthlyProgress.minutesExercised,
               target: monthlyGoals.minuteGoal,
               icon: "time",
@@ -2212,7 +2221,7 @@ export default function DashboardScreen() {
               >
                 <Ionicons name="play" size={16} color={colors.black} />
                 <Text style={[styles.timerButtonText, { color: colors.black }]}>
-                  Start Workout
+                  {t("dashboard.startWorkout")}
                 </Text>
               </TouchableOpacity>
             )}
@@ -2545,8 +2554,8 @@ export default function DashboardScreen() {
                             ]}
                           >
                             {completedExerciseIdxs.has(index)
-                              ? "Completed"
-                              : "Mark Completed"}
+                              ? t("dashboard.completed")
+                              : t("dashboard.markCompleted")}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -2565,7 +2574,7 @@ export default function DashboardScreen() {
               >
                 <Ionicons name="flag" size={16} color={colors.black} />
                 <Text style={[styles.timerButtonText, { color: colors.black }]}>
-                  Finish Workout
+                  {t("dashboard.finishWorkout")}
                 </Text>
               </TouchableOpacity>
             )}
@@ -2607,7 +2616,8 @@ export default function DashboardScreen() {
               >
                 <Ionicons name="fitness" size={18} color={colors.primary} />
                 <Text style={{ color: colors.text }}>
-                  Completed workouts: {summaryData.totalCompleted}
+                  {t("dashboard.completed")} workouts:{" "}
+                  {summaryData.totalCompleted}
                 </Text>
               </View>
               <View
