@@ -118,28 +118,28 @@ export default function DashboardScreen() {
   const workoutGoals = [
     {
       id: "weight_loss",
-      title: "Weight Loss",
+      title: t("dashboard.weightLoss"),
       icon: "trending-down",
       color: colors.primary,
       image: require("../../assets/images/weightloss.jpeg"),
     },
     {
       id: "muscle_gain",
-      title: "Muscle Gain",
+      title: t("dashboard.muscleGain"),
       icon: "fitness",
       color: colors.secondary,
       image: require("../../assets/images/MuscleGain.webp"),
     },
     {
       id: "maintenance",
-      title: "Maintain Form",
+      title: t("dashboard.maintenance"),
       icon: "body",
       color: colors.accent,
       image: require("../../assets/images/maintain.webp"),
     },
     {
       id: "strength",
-      title: "Increase Strength",
+      title: t("dashboard.strength"),
       icon: "barbell",
       color: colors.darkGreen,
       image: require("../../assets/images/strengthIncrease.jpg"),
@@ -163,7 +163,7 @@ export default function DashboardScreen() {
 
   const workoutDetails: Record<string, WorkoutDetails> = {
     cardio: {
-      title: "Cardio Session",
+      title: t("dashboard.cardioSession"),
       exercises: [
         {
           name: "Intervals",
@@ -200,7 +200,7 @@ export default function DashboardScreen() {
       ],
     },
     weight: {
-      title: "Weight Training",
+      title: t("dashboard.weightTraining"),
       exercises: [
         {
           name: "Squats",
@@ -245,7 +245,7 @@ export default function DashboardScreen() {
       ],
     },
     mobility: {
-      title: "Mobility Flow",
+      title: t("dashboard.mobilityFlow"),
       exercises: [
         {
           name: "Hip Openers",
@@ -290,7 +290,7 @@ export default function DashboardScreen() {
       ],
     },
     explosive: {
-      title: "Explosive Training",
+      title: t("dashboard.explosiveTraining"),
       exercises: [
         {
           name: "Box Jumps",
@@ -1266,7 +1266,7 @@ export default function DashboardScreen() {
 
   const handleCreateCalendar = async () => {
     if (selectedDays.length === 0) {
-      alert("Pick at least one day");
+      alert(t("dashboard.pickAtLeastOneDay"));
       return;
     }
     const cal = generateCalendar();
@@ -1507,7 +1507,7 @@ export default function DashboardScreen() {
               ProFit
             </Text>
             <Text style={[styles.greeting, { color: colors.text }]}>
-              VOLUME UP YOUR{"\n"}BODY GOALS
+              {t("dashboard.volumeUpYourBodyGoals")}
             </Text>
           </View>
         </ImageBackground>
@@ -1525,7 +1525,7 @@ export default function DashboardScreen() {
                 {weight}kg
               </Text>
               <Text style={[styles.statLabel, { color: colors.text }]}>
-                WEIGHT
+                {t("dashboard.weight").toUpperCase()}
               </Text>
             </TouchableOpacity>
 
@@ -1543,7 +1543,7 @@ export default function DashboardScreen() {
                 {height}cm
               </Text>
               <Text style={[styles.statLabel, { color: colors.text }]}>
-                HEIGHT
+                {t("dashboard.height").toUpperCase()}
               </Text>
             </TouchableOpacity>
 
@@ -1561,7 +1561,7 @@ export default function DashboardScreen() {
                 {freeDays}
               </Text>
               <Text style={[styles.statLabel, { color: colors.text }]}>
-                FREE DAYS
+                {t("dashboard.freeDays").toUpperCase()}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1592,7 +1592,7 @@ export default function DashboardScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  Find Calendar
+                  {t("dashboard.findCalendar")}
                 </Text>
                 <View
                   style={{ flexDirection: "row", gap: 8, alignItems: "center" }}
@@ -1621,7 +1621,7 @@ export default function DashboardScreen() {
                     }}
                   >
                     <Text style={{ color: colors.black, fontWeight: "600" }}>
-                      Join
+                      {t("dashboard.join")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1640,19 +1640,19 @@ export default function DashboardScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  Create Calendar
+                  {t("dashboard.createCalendar")}
                 </Text>
                 <Text style={{ color: colors.text, marginBottom: 6 }}>
-                  Goal
+                  {t("dashboard.goal")}
                 </Text>
                 <View
                   style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
                 >
                   {[
-                    ["weight_loss", "Weight loss"],
-                    ["muscle_gain", "Muscle gain"],
-                    ["maintenance", "Maintain"],
-                    ["strength", "Strength"],
+                    ["weight_loss", t("dashboard.weightLoss")],
+                    ["muscle_gain", t("dashboard.muscleGain")],
+                    ["maintenance", t("dashboard.maintain")],
+                    ["strength", t("dashboard.strength")],
                   ].map(([val, label]) => (
                     <TouchableOpacity
                       key={val}
@@ -1677,72 +1677,78 @@ export default function DashboardScreen() {
                 </View>
 
                 <Text style={{ color: colors.text, marginVertical: 6 }}>
-                  Level
+                  {t("dashboard.level")}
                 </Text>
                 <View
                   style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
                 >
                   {[
-                    "amateur",
-                    "beginner",
-                    "medium",
-                    "experienced",
-                    "professional",
-                  ].map((l) => (
+                    ["amateur", t("dashboard.amateur")],
+                    ["beginner", t("dashboard.beginner")],
+                    ["medium", t("dashboard.medium")],
+                    ["experienced", t("dashboard.experienced")],
+                    ["professional", t("dashboard.professional")],
+                  ].map(([val, label]) => (
                     <TouchableOpacity
-                      key={l}
-                      onPress={() => setLevel(l as any)}
+                      key={val}
+                      onPress={() => setLevel(val as any)}
                       style={{
                         paddingHorizontal: 12,
                         paddingVertical: 8,
                         borderRadius: 999,
                         backgroundColor:
-                          level === l ? colors.primary : colors.lightGray,
+                          level === val ? colors.primary : colors.lightGray,
                       }}
                     >
                       <Text
                         style={{
-                          color: level === l ? colors.black : colors.text,
+                          color: level === val ? colors.black : colors.text,
                         }}
                       >
-                        {l}
+                        {label}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
                 <Text style={{ color: colors.text, marginVertical: 6 }}>
-                  Days
+                  {t("dashboard.days")}
                 </Text>
                 <View
                   style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
                 >
-                  {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
-                    (d) => (
-                      <TouchableOpacity
-                        key={d}
-                        onPress={() => toggleDay(d)}
+                  {[
+                    ["Mon", t("calendar.monday")],
+                    ["Tue", t("calendar.tuesday")],
+                    ["Wed", t("calendar.wednesday")],
+                    ["Thu", t("calendar.thursday")],
+                    ["Fri", t("calendar.friday")],
+                    ["Sat", t("calendar.saturday")],
+                    ["Sun", t("calendar.sunday")],
+                  ].map(([val, label]) => (
+                    <TouchableOpacity
+                      key={val}
+                      onPress={() => toggleDay(val)}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        backgroundColor: selectedDays.includes(val)
+                          ? colors.primary
+                          : colors.lightGray,
+                      }}
+                    >
+                      <Text
                         style={{
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          borderRadius: 999,
-                          backgroundColor: selectedDays.includes(d)
-                            ? colors.primary
-                            : colors.lightGray,
+                          color: selectedDays.includes(val)
+                            ? colors.black
+                            : colors.text,
                         }}
                       >
-                        <Text
-                          style={{
-                            color: selectedDays.includes(d)
-                              ? colors.black
-                              : colors.text,
-                          }}
-                        >
-                          {d}
-                        </Text>
-                      </TouchableOpacity>
-                    )
-                  )}
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
 
                 <TouchableOpacity
@@ -1757,7 +1763,7 @@ export default function DashboardScreen() {
                   }}
                 >
                   <Text style={{ color: colors.black, fontWeight: "600" }}>
-                    Generate Calendar
+                    {t("dashboard.generateCalendar")}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1775,7 +1781,9 @@ export default function DashboardScreen() {
                   backgroundColor: colors.darkGray,
                 }}
               >
-                <Text style={{ color: colors.text }}>Share</Text>
+                <Text style={{ color: colors.text }}>
+                  {t("dashboard.share")}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={async () => {
@@ -1823,7 +1831,9 @@ export default function DashboardScreen() {
                   backgroundColor: colors.error,
                 }}
               >
-                <Text style={{ color: colors.background }}>Clear</Text>
+                <Text style={{ color: colors.background }}>
+                  {t("dashboard.clear")}
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -2461,7 +2471,7 @@ export default function DashboardScreen() {
                                 { color: colors.text },
                               ]}
                             >
-                              Sets:
+                              {t("dashboard.sets")}:
                             </Text>
                             <Text
                               style={[
@@ -2479,7 +2489,7 @@ export default function DashboardScreen() {
                                 { color: colors.text },
                               ]}
                             >
-                              Reps:
+                              {t("dashboard.reps")}:
                             </Text>
                             <Text
                               style={[
@@ -2497,7 +2507,7 @@ export default function DashboardScreen() {
                                 { color: colors.text },
                               ]}
                             >
-                              Rest:
+                              {t("dashboard.rest")}:
                             </Text>
                             <Text
                               style={[
@@ -2837,7 +2847,7 @@ export default function DashboardScreen() {
           >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Edit Free Days
+                {t("dashboard.editFreeDays")}
               </Text>
               <TouchableOpacity onPress={() => setShowFreeDaysModal(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
@@ -2846,7 +2856,7 @@ export default function DashboardScreen() {
 
             <View style={styles.editModalBody}>
               <Text style={[styles.editModalLabel, { color: colors.text }]}>
-                Free Days per Week: {freeDays}
+                {t("dashboard.freeDaysPerWeek")}: {freeDays}
               </Text>
               <View style={styles.numberInputContainer}>
                 <TouchableOpacity

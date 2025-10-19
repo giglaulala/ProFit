@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import Colors from "../constants/Colors";
+import { useLanguage } from "../contexts/LanguageContext";
 
 interface WorkoutDay {
   date: string;
@@ -25,6 +26,7 @@ interface CalendarProps {
 export default function Calendar({ workoutDays, onDatePress }: CalendarProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
+  const { t } = useLanguage();
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const getDaysInMonth = (date: Date) => {
@@ -40,18 +42,18 @@ export default function Calendar({ workoutDays, onDatePress }: CalendarProps) {
 
   const getMonthName = (date: Date) => {
     const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
+      t("calendar.january"),
+      t("calendar.february"),
+      t("calendar.march"),
+      t("calendar.april"),
+      t("calendar.may"),
+      t("calendar.june"),
+      t("calendar.july"),
+      t("calendar.august"),
+      t("calendar.september"),
+      t("calendar.october"),
+      t("calendar.november"),
+      t("calendar.december"),
     ];
     return months[date.getMonth()];
   };
@@ -96,7 +98,15 @@ export default function Calendar({ workoutDays, onDatePress }: CalendarProps) {
   };
 
   const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentDate);
-  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const daysOfWeek = [
+    t("calendar.sunday"),
+    t("calendar.monday"),
+    t("calendar.tuesday"),
+    t("calendar.wednesday"),
+    t("calendar.thursday"),
+    t("calendar.friday"),
+    t("calendar.saturday"),
+  ];
 
   const getWorkoutIcon = (type: string) => {
     switch (type) {
@@ -210,31 +220,31 @@ export default function Calendar({ workoutDays, onDatePress }: CalendarProps) {
       {/* Legend */}
       <View style={styles.legend}>
         <Text style={[styles.legendTitle, { color: colors.text }]}>
-          Workout Types:
+          {t("calendar.workoutTypes")}
         </Text>
         <View style={styles.legendGrid}>
           <View style={styles.legendItem}>
             <Ionicons name="heart" size={16} color={colors.accent} />
             <Text style={[styles.legendText, { color: colors.text }]}>
-              Cardio
+              {t("calendar.cardio")}
             </Text>
           </View>
           <View style={styles.legendItem}>
             <Ionicons name="barbell" size={16} color={colors.secondary} />
             <Text style={[styles.legendText, { color: colors.text }]}>
-              Weight Training
+              {t("calendar.weightTraining")}
             </Text>
           </View>
           <View style={styles.legendItem}>
             <Ionicons name="walk" size={16} color={colors.primary} />
             <Text style={[styles.legendText, { color: colors.text }]}>
-              Mobility
+              {t("calendar.mobility")}
             </Text>
           </View>
           <View style={styles.legendItem}>
             <Ionicons name="flash" size={16} color={colors.warning} />
             <Text style={[styles.legendText, { color: colors.text }]}>
-              Explosive
+              {t("calendar.explosive")}
             </Text>
           </View>
         </View>
