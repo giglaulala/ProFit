@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import Colors from "../../constants/Colors";
+import { supabase } from "../../lib/supabase";
 
 const { width } = Dimensions.get("window");
 
@@ -21,6 +22,12 @@ export default function TrackingScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
   const [inputCode, setInputCode] = useState("");
+
+  // Supabase data state
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [userWeight, setUserWeight] = useState<number | null>(null);
+  const [userHeight, setUserHeight] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const trackingFeatures = [
     {
@@ -43,21 +50,56 @@ export default function TrackingScreen() {
     },
   ];
 
-  const recentActivities = [
-    {
-      type: "Workout",
-      title: "Upper Body Strength",
-      time: "2 hours ago",
-      icon: "fitness",
-    },
-    { type: "Weight", title: "75.2 kg", time: "2 days ago", icon: "scale" },
-    {
-      type: "Measurement",
-      title: "Chest: 95cm",
-      time: "3 days ago",
-      icon: "resize",
-    },
-  ];
+  // Load data from Supabase
+  const loadUserData = async () => {
+    try {
+      setIsLoading(true);
+      const { data: userInfo } = await supabase.auth.getUser();
+      const userId = userInfo.user?.id;
+
+      if (userId) {
+        // Load user settings (weight, height)
+        const { data: settings } = await supabase
+          .from("trainee_settings")
+          .select("weight, height")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (settings) {
+          setUserWeight(settings.weight);
+          setUserHeight(settings.height);
+        }
+
+        // Load recent activities from monthly progress
+        const { data: progress } = await supabase
+          .from("monthly_progress")
+          .select("*")
+          .eq("user_id", userId)
+          .order("updated_at", { ascending: false })
+          .limit(5);
+
+        if (progress && progress.length > 0) {
+          const activities = progress.map((p: any) => ({
+            type: "Workout",
+            title: `${p.workouts_completed} workouts completed`,
+            time: new Date(p.updated_at).toLocaleDateString(),
+            icon: "fitness",
+            calories: p.calories_burned,
+            minutes: p.minutes_exercised,
+          }));
+          setRecentActivities(activities);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
 
   const handleTrackingAction = (action: string) => {
     console.log("Tracking action:", action);
@@ -184,6 +226,38 @@ export default function TrackingScreen() {
             Recent Activities
           </Text>
           <View style={styles.activitiesList}>
+            {/* Weight Card */}
+            {userWeight && (
+              <View
+                style={[
+                  styles.activityCard,
+                  { backgroundColor: colors.lightGray },
+                ]}
+              >
+                <View style={styles.activityHeader}>
+                  <View style={styles.activityIcon}>
+                    <Ionicons name="scale" size={20} color={colors.accent} />
+                  </View>
+                  <View style={styles.activityInfo}>
+                    <Text
+                      style={[styles.activityType, { color: colors.accent }]}
+                    >
+                      Weight
+                    </Text>
+                    <Text
+                      style={[styles.activityTitle, { color: colors.text }]}
+                    >
+                      {userWeight} kg
+                    </Text>
+                  </View>
+                  <Text style={[styles.activityTime, { color: colors.text }]}>
+                    Current
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Recent Workouts */}
             {recentActivities.map((activity, index) => (
               <View
                 key={index}
@@ -211,6 +285,16 @@ export default function TrackingScreen() {
                     >
                       {activity.title}
                     </Text>
+                    {activity.calories && (
+                      <Text
+                        style={[
+                          styles.activitySubtitle,
+                          { color: colors.text },
+                        ]}
+                      >
+                        {activity.calories} calories • {activity.minutes} min
+                      </Text>
+                    )}
                   </View>
                   <Text style={[styles.activityTime, { color: colors.text }]}>
                     {activity.time}
@@ -218,48 +302,36 @@ export default function TrackingScreen() {
                 </View>
               </View>
             ))}
-          </View>
-        </View>
 
-        {/* Stats Overview */}
-        <View style={styles.statsContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            This Week
-          </Text>
-          <View style={styles.statsGrid}>
-            <View
-              style={[styles.statCard, { backgroundColor: colors.lightGray }]}
-            >
-              <Ionicons name="fitness" size={24} color={colors.primary} />
-              <Text style={[styles.statValue, { color: colors.primary }]}>
-                5
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.text }]}>
-                Workouts
-              </Text>
-            </View>
-            <View
-              style={[styles.statCard, { backgroundColor: colors.lightGray }]}
-            >
-              <Ionicons name="camera" size={24} color={colors.secondary} />
-              <Text style={[styles.statValue, { color: colors.secondary }]}>
-                3
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.text }]}>
-                Photos
-              </Text>
-            </View>
-            <View
-              style={[styles.statCard, { backgroundColor: colors.lightGray }]}
-            >
-              <Ionicons name="scale" size={24} color={colors.accent} />
-              <Text style={[styles.statValue, { color: colors.accent }]}>
-                2
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.text }]}>
-                Weigh-ins
-              </Text>
-            </View>
+            {/* Empty state */}
+            {recentActivities.length === 0 && !userWeight && (
+              <View
+                style={[
+                  styles.activityCard,
+                  { backgroundColor: colors.lightGray },
+                ]}
+              >
+                <View style={styles.activityHeader}>
+                  <View style={styles.activityIcon}>
+                    <Ionicons
+                      name="information-circle"
+                      size={20}
+                      color={colors.text}
+                    />
+                  </View>
+                  <View style={styles.activityInfo}>
+                    <Text style={[styles.activityType, { color: colors.text }]}>
+                      No Activities
+                    </Text>
+                    <Text
+                      style={[styles.activityTitle, { color: colors.text }]}
+                    >
+                      Complete workouts to see activity history
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -386,34 +458,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
   },
+  activitySubtitle: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 2,
+  },
   activityTime: {
     fontSize: 12,
     opacity: 0.7,
-  },
-  statsContainer: {
-    padding: 20,
-    paddingTop: 10,
-    paddingBottom: 40,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  statCard: {
-    width: (width - 60) / 3,
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    opacity: 0.7,
-    marginTop: 4,
   },
   videoCard: {
     borderRadius: 12,

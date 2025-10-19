@@ -28,6 +28,10 @@ export default function ProfileScreen() {
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
 
+  // Stats data from Supabase
+  const [totalWorkouts, setTotalWorkouts] = useState<number>(0);
+  const [totalMinutes, setTotalMinutes] = useState<number>(0);
+
   const [isEditVisible, setIsEditVisible] = useState(false);
   const [editEmail, setEditEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -70,6 +74,26 @@ export default function ProfileScreen() {
               ...(u ?? {}),
               traineeSettings: settings,
             }));
+          }
+
+          // Load stats data from monthly progress
+          const { data: progressData } = await supabase
+            .from("monthly_progress")
+            .select("workouts_completed, minutes_exercised")
+            .eq("user_id", parsed.userId);
+
+          if (progressData && progressData.length > 0) {
+            const totalWorkoutsCount = progressData.reduce(
+              (sum, p) => sum + (p.workouts_completed || 0),
+              0
+            );
+            const totalMinutesCount = progressData.reduce(
+              (sum, p) => sum + (p.minutes_exercised || 0),
+              0
+            );
+
+            setTotalWorkouts(totalWorkoutsCount);
+            setTotalMinutes(totalMinutesCount);
           }
         }
       }
@@ -124,9 +148,16 @@ export default function ProfileScreen() {
     ]);
   };
 
+  // Format minutes to hours and minutes
+  const formatMinutes = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  };
+
   const userStats = [
-    { label: "Total Workouts", value: "156" },
-    { label: "Workout Hours", value: "89h 30m" },
+    { label: "Total Workouts", value: totalWorkouts.toString() },
+    { label: "Workout Hours", value: formatMinutes(totalMinutes) },
   ];
 
   const menuItems = [{ title: "Edit Profile", icon: "person", action: "edit" }];
