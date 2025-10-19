@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
+  Linking,
   Modal,
   StyleSheet,
   Text,
@@ -35,7 +36,7 @@ export default function VideoPlayer({
   const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  const handlePlayVideo = () => {
+  const handlePlayVideo = async () => {
     if (!video) return;
 
     if (video.type === "local" && video.localPath) {
@@ -48,12 +49,23 @@ export default function VideoPlayer({
         }
       }
     } else if (video.type === "remote" && video.remoteUrl) {
-      // For remote videos, show a message about external playback
-      Alert.alert(
-        "Remote Video",
-        "Remote video playback would open in external browser/app.",
-        [{ text: "OK" }]
-      );
+      // For remote videos, open in YouTube app or browser
+      try {
+        const canOpen = await Linking.canOpenURL(video.remoteUrl);
+        if (canOpen) {
+          await Linking.openURL(video.remoteUrl);
+        } else {
+          Alert.alert(
+            "Cannot Open Video",
+            "Unable to open the video. Please check your internet connection.",
+            [{ text: "OK" }]
+          );
+        }
+      } catch (error) {
+        Alert.alert("Error", "Failed to open video. Please try again.", [
+          { text: "OK" },
+        ]);
+      }
     }
   };
 
