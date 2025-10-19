@@ -96,6 +96,23 @@ export default function DashboardScreen() {
   >("amateur");
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
+  // Monthly Goals State
+  const [monthlyGoals, setMonthlyGoals] = useState({
+    workoutGoal: 20,
+    calorieGoal: 15000,
+    minuteGoal: 1800,
+  });
+  const [monthlyProgress, setMonthlyProgress] = useState({
+    workoutsCompleted: 0,
+    caloriesBurned: 0,
+    minutesExercised: 0,
+  });
+  const [weeklyProgress, setWeeklyProgress] = useState({
+    workoutsCompleted: 0,
+    caloriesBurned: 0,
+    minutesExercised: 0,
+  });
+
   const workoutGoals = [
     {
       id: "weight_loss",
@@ -416,6 +433,9 @@ export default function DashboardScreen() {
           };
           await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
           setUserCalendar(updated);
+
+          // Update progress tracking
+          await updateProgress(1, calories, totalMin);
         }
       }
     } catch (e) {
@@ -551,6 +571,13 @@ export default function DashboardScreen() {
               if (typeof s.goal === "string") setSelectedWorkoutGoal(s.goal);
             }
           }
+
+          // Load monthly goals and progress
+          await Promise.all([
+            loadMonthlyGoals(),
+            loadMonthlyProgress(),
+            loadWeeklyProgress(),
+          ]);
         }
       } catch (e) {
         console.error("calendar load error", e);
@@ -666,10 +693,16 @@ export default function DashboardScreen() {
         return `${dd}.${mm}` === date;
       });
       if (todayIso && updated.plan[todayIso]) {
+        const stats = updated.plan[todayIso].stats;
         updated.plan[todayIso].completed = false;
         delete updated.plan[todayIso].stats;
         await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
         setUserCalendar(updated);
+
+        // Decrease progress counters if stats existed
+        if (stats) {
+          await updateProgress(-1, -stats.calories, -stats.minutes);
+        }
       }
     } catch (e) {
       // ignore
@@ -1289,6 +1322,162 @@ export default function DashboardScreen() {
     }
   };
 
+  // Monthly Goals Functions
+  const loadMonthlyGoals = async () => {
+    try {
+      const { data: userInfo } = await supabase.auth.getUser();
+      const userId = userInfo.user?.id;
+      if (!userId) return;
+
+      // Calculate workouts in current month only
+      const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM format
+      let calendarWorkoutCount = 0;
+
+      if (userCalendar?.plan) {
+        // Count only workouts in the current month
+        Object.values(userCalendar.plan).forEach((dayPlan: any) => {
+          const dayDate = new Date(dayPlan.date);
+          const dayMonth = dayDate.toISOString().substring(0, 7);
+          if (dayMonth === currentMonth) {
+            calendarWorkoutCount++;
+          }
+        });
+      }
+
+      // Debug: Log the counts
+      console.log("Current month:", currentMonth);
+      console.log("Workouts in current month:", calendarWorkoutCount);
+      console.log(
+        "Total calendar entries:",
+        userCalendar?.plan ? Object.keys(userCalendar.plan).length : 0
+      );
+
+      const { data, error } = await supabase.rpc(
+        "get_or_create_monthly_goals",
+        {
+          p_user_id: userId,
+        }
+      );
+
+      if (error) throw error;
+      if (data && data.length > 0) {
+        const goals = {
+          workoutGoal:
+            calendarWorkoutCount > 0
+              ? calendarWorkoutCount
+              : data[0].workout_goal,
+          calorieGoal: data[0].calorie_goal,
+          minuteGoal: data[0].minute_goal,
+        };
+
+        setMonthlyGoals(goals);
+
+        // Update the database with the calculated workout goal if it's different
+        if (
+          calendarWorkoutCount > 0 &&
+          calendarWorkoutCount !== data[0].workout_goal
+        ) {
+          await supabase
+            .from("monthly_goals")
+            .update({ workout_goal: calendarWorkoutCount })
+            .eq("user_id", userId)
+            .eq("month_year", currentMonth);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading monthly goals:", error);
+    }
+  };
+
+  const loadMonthlyProgress = async () => {
+    try {
+      const { data: userInfo } = await supabase.auth.getUser();
+      const userId = userInfo.user?.id;
+      if (!userId) return;
+
+      const { data, error } = await supabase.rpc("get_monthly_progress", {
+        p_user_id: userId,
+      });
+
+      if (error) throw error;
+      if (data && data.length > 0) {
+        setMonthlyProgress({
+          workoutsCompleted: data[0].workouts_completed,
+          caloriesBurned: data[0].calories_burned,
+          minutesExercised: data[0].minutes_exercised,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading monthly progress:", error);
+    }
+  };
+
+  const loadWeeklyProgress = async () => {
+    try {
+      const { data: userInfo } = await supabase.auth.getUser();
+      const userId = userInfo.user?.id;
+      if (!userId) return;
+
+      const { data, error } = await supabase.rpc("get_weekly_progress", {
+        p_user_id: userId,
+      });
+
+      if (error) throw error;
+      if (data && data.length > 0) {
+        setWeeklyProgress({
+          workoutsCompleted: data[0].workouts_completed,
+          caloriesBurned: data[0].calories_burned,
+          minutesExercised: data[0].minutes_exercised,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading weekly progress:", error);
+    }
+  };
+
+  const updateProgress = async (
+    workouts: number,
+    calories: number,
+    minutes: number
+  ) => {
+    try {
+      const { data: userInfo } = await supabase.auth.getUser();
+      const userId = userInfo.user?.id;
+      if (!userId) return;
+
+      // Update monthly progress
+      const { error: monthlyError } = await supabase.rpc(
+        "update_monthly_progress",
+        {
+          p_user_id: userId,
+          p_workouts: workouts,
+          p_calories: calories,
+          p_minutes: minutes,
+        }
+      );
+
+      if (monthlyError) throw monthlyError;
+
+      // Update weekly progress
+      const { error: weeklyError } = await supabase.rpc(
+        "update_weekly_progress",
+        {
+          p_user_id: userId,
+          p_workouts: workouts,
+          p_calories: calories,
+          p_minutes: minutes,
+        }
+      );
+
+      if (weeklyError) throw weeklyError;
+
+      // Reload progress data
+      await Promise.all([loadMonthlyProgress(), loadWeeklyProgress()]);
+    } catch (error) {
+      console.error("Error updating progress:", error);
+    }
+  };
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -1581,8 +1770,42 @@ export default function DashboardScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={async () => {
-                  await AsyncStorage.removeItem("userCalendar");
-                  setUserCalendar(null);
+                  try {
+                    // Clear local calendar data
+                    await AsyncStorage.removeItem("userCalendar");
+                    setUserCalendar(null);
+
+                    // Clear monthly goals and progress data from Supabase
+                    const { data: userInfo } = await supabase.auth.getUser();
+                    const userId = userInfo.user?.id;
+                    if (userId) {
+                      // Use the new clear_all_progress function for thorough cleanup
+                      await supabase.rpc("clear_all_progress", {
+                        p_user_id: userId,
+                      });
+
+                      // Reset progress state immediately
+                      setMonthlyProgress({
+                        workoutsCompleted: 0,
+                        caloriesBurned: 0,
+                        minutesExercised: 0,
+                      });
+                      setWeeklyProgress({
+                        workoutsCompleted: 0,
+                        caloriesBurned: 0,
+                        minutesExercised: 0,
+                      });
+
+                      // Reload goals and progress to ensure clean state
+                      await Promise.all([
+                        loadMonthlyGoals(),
+                        loadMonthlyProgress(),
+                        loadWeeklyProgress(),
+                      ]);
+                    }
+                  } catch (error) {
+                    console.error("Error clearing calendar data:", error);
+                  }
                 }}
                 style={{
                   paddingHorizontal: 10,
@@ -1649,7 +1872,7 @@ export default function DashboardScreen() {
                     { color: colors.primary },
                   ]}
                 >
-                  390
+                  {weeklyProgress.minutesExercised}
                 </Text>
                 <Text
                   style={[
@@ -1667,7 +1890,7 @@ export default function DashboardScreen() {
                     { color: colors.secondary },
                   ]}
                 >
-                  65%
+                  {weeklyProgress.workoutsCompleted}
                 </Text>
                 <Text
                   style={[
@@ -1675,7 +1898,7 @@ export default function DashboardScreen() {
                     { color: colors.text },
                   ]}
                 >
-                  Goal Met
+                  Workouts
                 </Text>
               </View>
             </View>
@@ -1688,9 +1911,24 @@ export default function DashboardScreen() {
             Monthly Goals
           </Text>
           {[
-            { title: "Workouts", current: 12, target: 20, icon: "fitness" },
-            { title: "Calories", current: 8500, target: 12000, icon: "flame" },
-            { title: "Minutes", current: 540, target: 900, icon: "time" },
+            {
+              title: "Workouts",
+              current: monthlyProgress.workoutsCompleted,
+              target: monthlyGoals.workoutGoal,
+              icon: "fitness",
+            },
+            {
+              title: "Calories",
+              current: monthlyProgress.caloriesBurned,
+              target: monthlyGoals.calorieGoal,
+              icon: "flame",
+            },
+            {
+              title: "Minutes",
+              current: monthlyProgress.minutesExercised,
+              target: monthlyGoals.minuteGoal,
+              icon: "time",
+            },
           ].map((goal, index) => (
             <View
               key={index}
