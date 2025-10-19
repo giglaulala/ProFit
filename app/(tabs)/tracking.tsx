@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -30,6 +31,11 @@ export default function TrackingScreen() {
   const [userWeight, setUserWeight] = useState<number | null>(null);
   const [userHeight, setUserHeight] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Camera state
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   const trackingFeatures = [
     {
@@ -103,8 +109,62 @@ export default function TrackingScreen() {
     loadUserData();
   }, []);
 
-  const handleTrackingAction = (action: string) => {
-    console.log("Tracking action:", action);
+  const handleBarCodeScanned = ({
+    type,
+    data,
+  }: {
+    type: string;
+    data: string;
+  }) => {
+    setScanned(true);
+    setShowScanner(false);
+
+    // Process the scanned QR code
+    if (/^ProFit-\w{3,}$/i.test(data)) {
+      Alert.alert(
+        t("tracking.scanWorkoutQR"),
+        `${t("tracking.detected")}: ${data}`,
+        [{ text: t("common.ok") }]
+      );
+    } else if (/^[a-z0-9-]{3,}$/i.test(data)) {
+      Alert.alert(
+        t("tracking.scanWorkoutQR"),
+        `${t("tracking.detected")}: ${data}`,
+        [{ text: t("common.ok") }]
+      );
+    } else {
+      Alert.alert(t("tracking.scanWorkoutQR"), t("tracking.invalidQRCode"), [
+        { text: t("common.ok") },
+      ]);
+    }
+  };
+
+  const handleTrackingAction = async (action: string) => {
+    if (action === "scan") {
+      if (!permission) {
+        Alert.alert(
+          t("tracking.scanWorkoutQR"),
+          t("tracking.requestingPermission"),
+          [{ text: t("common.ok") }]
+        );
+        return;
+      }
+      if (!permission.granted) {
+        const result = await requestPermission();
+        if (!result.granted) {
+          Alert.alert(
+            t("tracking.scanWorkoutQR"),
+            t("tracking.cameraPermissionDenied"),
+            [{ text: t("common.ok") }]
+          );
+          return;
+        }
+      }
+      setScanned(false);
+      setShowScanner(true);
+    } else {
+      console.log("Tracking action:", action);
+    }
   };
 
   const handleSubmitCode = () => {
@@ -337,6 +397,49 @@ export default function TrackingScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Camera Scanner Modal */}
+      {showScanner && (
+        <View style={styles.scannerContainer}>
+          <CameraView
+            style={styles.scanner}
+            facing="back"
+            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+            barcodeScannerSettings={{
+              barcodeTypes: ["qr", "pdf417"],
+            }}
+          />
+          <View style={styles.scannerOverlay}>
+            <View style={styles.scannerHeader}>
+              <TouchableOpacity
+                onPress={() => setShowScanner(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="white" />
+              </TouchableOpacity>
+              <Text style={styles.scannerTitle}>
+                {t("tracking.scanWorkoutQR")}
+              </Text>
+              <View style={{ width: 24 }} />
+            </View>
+            <View style={styles.scannerFrame}>
+              <View style={styles.scannerCorner} />
+              <View
+                style={[styles.scannerCorner, styles.scannerCornerTopRight]}
+              />
+              <View
+                style={[styles.scannerCorner, styles.scannerCornerBottomLeft]}
+              />
+              <View
+                style={[styles.scannerCorner, styles.scannerCornerBottomRight]}
+              />
+            </View>
+            <Text style={styles.scannerInstruction}>
+              {t("tracking.scanInstruction")}
+            </Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -497,5 +600,83 @@ const styles = StyleSheet.create({
   videoSubtitle: {
     fontSize: 14,
     opacity: 0.7,
+  },
+  scannerContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "black",
+  },
+  scanner: {
+    flex: 1,
+  },
+  scannerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  scannerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    width: "100%",
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scannerTitle: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  scannerFrame: {
+    width: 250,
+    height: 250,
+    position: "relative",
+  },
+  scannerCorner: {
+    position: "absolute",
+    width: 30,
+    height: 30,
+    borderColor: "white",
+    borderWidth: 3,
+  },
+  scannerCornerTopRight: {
+    top: 0,
+    right: 0,
+    borderLeftWidth: 0,
+    borderBottomWidth: 0,
+  },
+  scannerCornerBottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderTopWidth: 0,
+    borderRightWidth: 0,
+  },
+  scannerCornerBottomRight: {
+    bottom: 0,
+    right: 0,
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+  },
+  scannerInstruction: {
+    color: "white",
+    fontSize: 16,
+    textAlign: "center",
+    paddingHorizontal: 40,
+    paddingBottom: 50,
   },
 });

@@ -174,6 +174,13 @@ const enTranslations: Record<string, string> = {
   "tracking.workout": "Workout",
   "tracking.noActivities": "No Activities",
   "tracking.completeWorkouts": "Complete workouts to see activity history",
+  "tracking.detected": "Detected",
+  "tracking.invalidQRCode":
+    "Invalid QR code. Please scan a valid ProFit QR code.",
+  "tracking.requestingPermission": "Requesting camera permission...",
+  "tracking.cameraPermissionDenied":
+    "Camera permission denied. Please enable camera access in settings.",
+  "tracking.scanInstruction": "Point your camera at a QR code to scan",
 
   // Workouts
   "workouts.title": "ProFit Workouts",
@@ -368,6 +375,13 @@ const kaTranslations: Record<string, string> = {
   "tracking.noActivities": "აქტივობები არ არის",
   "tracking.completeWorkouts":
     "დაასრულეთ ვარჯიშები აქტივობების ისტორიის სანახავად",
+  "tracking.detected": "აღმოჩენილი",
+  "tracking.invalidQRCode":
+    "არასწორი QR კოდი. გთხოვთ, სკანირება სწორი ProFit QR კოდი.",
+  "tracking.requestingPermission": "კამერის ნებართვის მოთხოვნა...",
+  "tracking.cameraPermissionDenied":
+    "კამერის ნებართვა უარყოფილია. გთხოვთ, ჩართოთ კამერის წვდომა პარამეტრებში.",
+  "tracking.scanInstruction": "მიმართეთ კამერა QR კოდზე სკანირებისთვის",
 
   // Workouts
   "workouts.title": "ProFit ვარჯიშები",
