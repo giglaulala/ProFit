@@ -546,34 +546,6 @@ export default function WorkoutsScreen() {
               );
             })}
         </View>
-
-        {/* Quick Start */}
-        <View style={styles.quickStartContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {t("workouts.quickStart")}
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.quickStartCard,
-              { backgroundColor: colors.lightGray },
-            ]}
-            activeOpacity={0.8}
-          >
-            <View style={styles.quickStartContent}>
-              <View>
-                <Text style={[styles.quickStartTitle, { color: colors.text }]}>
-                  {t("workouts.startRandomWorkout")}
-                </Text>
-                <Text
-                  style={[styles.quickStartSubtitle, { color: colors.text }]}
-                >
-                  {t("workouts.randomWorkoutSubtitle")}
-                </Text>
-              </View>
-              <Ionicons name="shuffle" size={24} color={colors.primary} />
-            </View>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
 
       {/* Floating Search Bar */}
@@ -803,31 +775,6 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 12,
-  },
-  quickStartContainer: {
-    padding: 20,
-    paddingTop: 10,
-    paddingBottom: 40,
-  },
-  quickStartCard: {
-    borderRadius: 12,
-    padding: 20,
-  },
-  quickStartContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  quickStartTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#000",
-  },
-  quickStartSubtitle: {
-    fontSize: 14,
-    color: "#000",
-    opacity: 0.7,
-    marginTop: 4,
   },
   floatingSearchContainer: {
     position: "absolute",
