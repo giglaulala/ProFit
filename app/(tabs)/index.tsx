@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Dimensions,
   Image,
   ImageBackground,
@@ -19,7 +18,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import Calendar from "../../components/Calendar";
 import VideoPlayer from "../../components/VideoPlayer";
-import WorkoutTimer from "../../components/WorkoutTimer";
 import Colors from "../../constants/Colors";
 import {
   getVideoByExerciseName,
@@ -60,11 +58,11 @@ export default function DashboardScreen() {
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutDay | null>(
     null
   );
-  const [showTimer, setShowTimer] = useState(false);
-  const [timerDuration, setTimerDuration] = useState(120);
-  const [timerTitle, setTimerTitle] = useState("");
   const [workoutRunning, setWorkoutRunning] = useState(false);
   const [workoutStartAt, setWorkoutStartAt] = useState<number | null>(null);
+  const [workoutPopupStartTime, setWorkoutPopupStartTime] = useState<
+    number | null
+  >(null);
   const [completedExercisesCount, setCompletedExercisesCount] = useState(0);
   const [weight, setWeight] = useState(75);
   const [height, setHeight] = useState(175);
@@ -73,6 +71,7 @@ export default function DashboardScreen() {
   const [showHeightModal, setShowHeightModal] = useState(false);
   const [showFreeDaysModal, setShowFreeDaysModal] = useState(false);
   const [selectedWorkoutGoal, setSelectedWorkoutGoal] = useState("weight_loss");
+  const [showAllPlans, setShowAllPlans] = useState(false);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<WorkoutVideo | null>(null);
   const [joinCode, setJoinCode] = useState("");
@@ -87,6 +86,18 @@ export default function DashboardScreen() {
     totalMinutes: number;
     totalCalories: number;
   }>({ totalCompleted: 0, totalMinutes: 0, totalCalories: 0 });
+
+  // Custom Alert States
+  const [showCustomAlert, setShowCustomAlert] = useState(false);
+  const [alertData, setAlertData] = useState<{
+    title: string;
+    message: string;
+    buttons: {
+      text: string;
+      style?: "default" | "cancel" | "destructive";
+      onPress?: () => void;
+    }[];
+  }>({ title: "", message: "", buttons: [] });
   const [completedExerciseIdxs, setCompletedExerciseIdxs] = useState<
     Set<number>
   >(new Set());
@@ -340,32 +351,10 @@ export default function DashboardScreen() {
     setSelectedWorkout(workout);
     setWorkoutRunning(false);
     setWorkoutStartAt(null);
+    setWorkoutPopupStartTime(Date.now()); // Track when popup is opened
     setCompletedExercisesCount(0);
     setCompletedExerciseIdxs(new Set());
     setShowWorkoutModal(true);
-  };
-
-  function parseRestToSeconds(rest: string | undefined | null): number {
-    if (!rest || rest.trim() === "" || rest.trim() === "-") {
-      return 60; // sensible default
-    }
-    const s = rest.trim().toLowerCase();
-    // Examples: "30s", "45 s", "2 min", "2-3 min", "2–3 min"
-    // Extract first integer occurrence
-    const match = s.match(/(\d+)/);
-    const num = match ? parseInt(match[1], 10) : NaN;
-    if (!isNaN(num)) {
-      if (s.includes("s")) return num; // seconds variants
-      if (s.includes("min")) return num * 60; // minutes variants
-    }
-    return 60; // fallback
-  }
-
-  const handleTimerPress = (rest: string) => {
-    const seconds = parseRestToSeconds(rest);
-    setTimerDuration(seconds);
-    setTimerTitle(`Rest: ${rest}`);
-    setShowTimer(true);
   };
 
   const estimateCaloriesFor = (minutes: number, type: string) => {
@@ -407,9 +396,58 @@ export default function DashboardScreen() {
     });
   };
 
+  const showCustomAlertModal = (
+    title: string,
+    message: string,
+    buttons: {
+      text: string;
+      style?: "default" | "cancel" | "destructive";
+      onPress?: () => void;
+    }[]
+  ) => {
+    setAlertData({ title, message, buttons });
+    setShowCustomAlert(true);
+  };
+
   const handleFinishWorkout = async () => {
+    // Check if all exercises are completed
+    if (selectedWorkout) {
+      const totalExercises =
+        workoutDetails[selectedWorkout.type]?.exercises.length || 0;
+      const completedCount = completedExerciseIdxs.size;
+
+      if (completedCount < totalExercises) {
+        showCustomAlertModal(
+          "Incomplete Workout",
+          `You have completed ${completedCount} out of ${totalExercises} exercises. Are you sure you want to finish the workout?`,
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Finish Anyway",
+              style: "destructive",
+              onPress: () => finishWorkoutProcess(),
+            },
+          ]
+        );
+        return;
+      }
+    }
+
+    finishWorkoutProcess();
+  };
+
+  const finishWorkoutProcess = async () => {
     const totalMs = workoutStartAt ? Date.now() - workoutStartAt : 0;
     const totalMin = Math.max(1, Math.round(totalMs / 60000));
+
+    // Calculate total time spent in workout popup
+    const popupTimeMs = workoutPopupStartTime
+      ? Date.now() - workoutPopupStartTime
+      : 0;
+    const popupTimeMin = Math.round(popupTimeMs / 60000);
 
     // Close first to avoid a re-render that shows Start button
     setShowWorkoutModal(false);
@@ -447,13 +485,15 @@ export default function DashboardScreen() {
     // Reset flow state after close
     setWorkoutRunning(false);
     setWorkoutStartAt(null);
+    setWorkoutPopupStartTime(null);
     setSelectedWorkout(null);
 
     // Notify user
     setTimeout(() => {
-      Alert.alert(
+      showCustomAlertModal(
         t("dashboard.workoutFinished"),
-        `Time: ${totalMin} min\nCompleted: ${completedExercisesCount}`
+        `Workout Time: ${totalMin} min\nTotal Time: ${popupTimeMin} min\nCompleted: ${completedExercisesCount}`,
+        [{ text: "OK" }]
       );
     }, 0);
   };
@@ -545,7 +585,14 @@ export default function DashboardScreen() {
           AsyncStorage.getItem("userCalendar"),
           AsyncStorage.getItem("calendarShareMap"),
         ]);
-        if (calStr) setUserCalendar(JSON.parse(calStr));
+        if (calStr) {
+          const calendar = JSON.parse(calStr);
+          setUserCalendar(calendar);
+          // Update selectedDays from the loaded calendar
+          if (calendar.selectedDays) {
+            setSelectedDays(calendar.selectedDays);
+          }
+        }
         if (mapStr) setCalendarMap(JSON.parse(mapStr));
         // Load trainee settings from Supabase or fallback to AsyncStorage setup
         const { data: userInfo } = await supabase.auth.getUser();
@@ -659,7 +706,7 @@ export default function DashboardScreen() {
       return `${dd}.${mm}` === date;
     });
     if (maybePlanEntry && maybePlanEntry.completed) {
-      Alert.alert(
+      showCustomAlertModal(
         t("dashboard.completed"),
         "This workout is marked as completed.",
         [
@@ -1284,6 +1331,11 @@ export default function DashboardScreen() {
       }
       await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
       setUserCalendar(cal);
+
+      // Update freeDays to match the number of selected days
+      const newFreeDays = selectedDays.length;
+      setFreeDays(newFreeDays);
+      persistTraineeSettings({ freeDays: newFreeDays });
     } catch (e: any) {
       alert(e.message || "Failed to create calendar");
     }
@@ -1318,6 +1370,7 @@ export default function DashboardScreen() {
 
   const handleWorkoutGoalPress = (goalId: string) => {
     setSelectedWorkoutGoal(goalId);
+    setShowAllPlans(false); // Hide all plans and show only selected one
     persistTraineeSettings({ goal: goalId });
   };
 
@@ -1558,7 +1611,7 @@ export default function DashboardScreen() {
                 color={colors.accent}
               />
               <Text style={[styles.statValue, { color: colors.accent }]}>
-                {freeDays}
+                {userCalendar ? selectedDays.length : freeDays}
               </Text>
               <Text style={[styles.statLabel, { color: colors.text }]}>
                 {t("dashboard.freeDays").toUpperCase()}
@@ -1791,6 +1844,8 @@ export default function DashboardScreen() {
                     // Clear local calendar data
                     await AsyncStorage.removeItem("userCalendar");
                     setUserCalendar(null);
+                    // Reset selectedDays when clearing calendar
+                    setSelectedDays([]);
 
                     // Clear monthly goals and progress data from Supabase
                     const { data: userInfo } = await supabase.auth.getUser();
@@ -2091,7 +2146,10 @@ export default function DashboardScreen() {
             PERSONALIZED PLAN
           </Text>
           <View style={styles.goalsGrid}>
-            {workoutGoals.map((goal, index) => (
+            {(showAllPlans
+              ? workoutGoals
+              : workoutGoals.filter((goal) => goal.id === selectedWorkoutGoal)
+            ).map((goal, index) => (
               <TouchableOpacity
                 key={index}
                 style={[
@@ -2154,6 +2212,24 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             ))}
           </View>
+
+          {!showAllPlans && (
+            <TouchableOpacity
+              style={[
+                styles.changePlanButton,
+                { backgroundColor: colors.lightGray },
+              ]}
+              onPress={() => setShowAllPlans(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="swap-horizontal" size={20} color={colors.text} />
+              <Text
+                style={[styles.changePlanButtonText, { color: colors.text }]}
+              >
+                Change the plan
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Weekly Stats */}
@@ -2523,27 +2599,6 @@ export default function DashboardScreen() {
                         <TouchableOpacity
                           style={[
                             styles.timerButton,
-                            { backgroundColor: colors.lightGray },
-                          ]}
-                          onPress={() => handleTimerPress(exercise.rest)}
-                        >
-                          <Ionicons
-                            name="timer-outline"
-                            size={16}
-                            color={colors.secondary}
-                          />
-                          <Text
-                            style={[
-                              styles.timerButtonText,
-                              { color: colors.secondary },
-                            ]}
-                          >
-                            Start Timer
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[
-                            styles.timerButton,
                             { backgroundColor: colors.darkGray },
                           ]}
                           onPress={() => toggleExerciseCompleted(index)}
@@ -2893,14 +2948,6 @@ export default function DashboardScreen() {
         </View>
       </Modal>
 
-      {/* Workout Timer Modal */}
-      <WorkoutTimer
-        visible={showTimer}
-        onClose={() => setShowTimer(false)}
-        duration={timerDuration}
-        title={timerTitle}
-      />
-
       {/* Video Player Modal */}
       <VideoPlayer
         visible={showVideoPlayer}
@@ -2908,6 +2955,77 @@ export default function DashboardScreen() {
         video={selectedVideo}
         equipment={(selectedVideo as any)?._equipment}
       />
+
+      {/* Custom Alert Modal */}
+      <Modal
+        visible={showCustomAlert}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowCustomAlert(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {alertData.title}
+              </Text>
+              <TouchableOpacity onPress={() => setShowCustomAlert(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.alertMessage, { color: colors.text }]}>
+              {alertData.message}
+            </Text>
+
+            <View style={styles.alertButtons}>
+              {alertData.buttons.map((button, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.alertButton,
+                    {
+                      backgroundColor:
+                        button.style === "destructive"
+                          ? colors.secondary
+                          : button.style === "cancel"
+                          ? colors.lightGray
+                          : colors.primary,
+                    },
+                  ]}
+                  onPress={() => {
+                    setShowCustomAlert(false);
+                    if (button.onPress) {
+                      button.onPress();
+                    }
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.alertButtonText,
+                      {
+                        color:
+                          button.style === "destructive"
+                            ? colors.black
+                            : button.style === "cancel"
+                            ? colors.text
+                            : colors.black,
+                      },
+                    ]}
+                  >
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Floating Chat Button removed */}
     </SafeAreaView>
@@ -3491,5 +3609,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     marginTop: 4,
+  },
+  alertMessage: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  alertButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+  },
+  alertButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  alertButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  changePlanButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 15,
+    gap: 8,
+  },
+  changePlanButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

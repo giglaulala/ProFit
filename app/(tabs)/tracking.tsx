@@ -107,7 +107,33 @@ export default function TrackingScreen() {
 
   useEffect(() => {
     loadUserData();
+    // Automatically open QR scanner when tab is accessed
+    openQRScanner();
   }, []);
+
+  const openQRScanner = async () => {
+    if (!permission) {
+      Alert.alert(
+        t("tracking.scanWorkoutQR"),
+        t("tracking.requestingPermission"),
+        [{ text: t("common.ok") }]
+      );
+      return;
+    }
+    if (!permission.granted) {
+      const result = await requestPermission();
+      if (!result.granted) {
+        Alert.alert(
+          t("tracking.scanWorkoutQR"),
+          t("tracking.cameraPermissionDenied"),
+          [{ text: t("common.ok") }]
+        );
+        return;
+      }
+    }
+    setScanned(false);
+    setShowScanner(true);
+  };
 
   const handleBarCodeScanned = ({
     type,
@@ -141,27 +167,7 @@ export default function TrackingScreen() {
 
   const handleTrackingAction = async (action: string) => {
     if (action === "scan") {
-      if (!permission) {
-        Alert.alert(
-          t("tracking.scanWorkoutQR"),
-          t("tracking.requestingPermission"),
-          [{ text: t("common.ok") }]
-        );
-        return;
-      }
-      if (!permission.granted) {
-        const result = await requestPermission();
-        if (!result.granted) {
-          Alert.alert(
-            t("tracking.scanWorkoutQR"),
-            t("tracking.cameraPermissionDenied"),
-            [{ text: t("common.ok") }]
-          );
-          return;
-        }
-      }
-      setScanned(false);
-      setShowScanner(true);
+      await openQRScanner();
     } else {
       console.log("Tracking action:", action);
     }

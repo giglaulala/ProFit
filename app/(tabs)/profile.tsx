@@ -34,6 +34,8 @@ export default function ProfileScreen() {
   const [totalMinutes, setTotalMinutes] = useState<number>(0);
 
   const [isEditVisible, setIsEditVisible] = useState(false);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -223,6 +225,11 @@ export default function ProfileScreen() {
                 activeOpacity={0.7}
                 onPress={() => {
                   if (item.action === "edit") {
+                    setEditFirstName(firstName);
+                    setEditLastName(lastName);
+                    setEditEmail(userData?.email ?? "");
+                    setNewPassword("");
+                    setConfirmPassword("");
                     setIsEditVisible(true);
                   }
                 }}
@@ -356,6 +363,40 @@ export default function ProfileScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: colors.text }]}>
+                First Name
+              </Text>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  { backgroundColor: colors.lightGray, color: colors.text },
+                ]}
+                value={editFirstName}
+                onChangeText={setEditFirstName}
+                placeholder="Enter first name"
+                placeholderTextColor={colors.text}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                Last Name
+              </Text>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  { backgroundColor: colors.lightGray, color: colors.text },
+                ]}
+                value={editLastName}
+                onChangeText={setEditLastName}
+                placeholder="Enter last name"
+                placeholderTextColor={colors.text}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
                 Email
               </Text>
               <TextInput
@@ -414,6 +455,8 @@ export default function ProfileScreen() {
                 ]}
                 onPress={() => {
                   setIsEditVisible(false);
+                  setEditFirstName("");
+                  setEditLastName("");
                   setEditEmail(userData?.email ?? "");
                   setNewPassword("");
                   setConfirmPassword("");
@@ -428,6 +471,20 @@ export default function ProfileScreen() {
                 ]}
                 onPress={async () => {
                   try {
+                    if (!editFirstName || editFirstName.trim().length < 1) {
+                      Alert.alert(
+                        "Invalid First Name",
+                        "Please enter a valid first name."
+                      );
+                      return;
+                    }
+                    if (!editLastName || editLastName.trim().length < 1) {
+                      Alert.alert(
+                        "Invalid Last Name",
+                        "Please enter a valid last name."
+                      );
+                      return;
+                    }
                     if (!editEmail || !editEmail.includes("@")) {
                       Alert.alert(
                         "Invalid Email",
@@ -449,6 +506,17 @@ export default function ProfileScreen() {
                       }
                     }
 
+                    // Update Supabase profiles table
+                    const { data: userInfo } = await supabase.auth.getUser();
+                    const userId = userInfo.user?.id;
+                    if (userId) {
+                      await supabase.from("profiles").upsert({
+                        id: userId,
+                        first_name: editFirstName.trim(),
+                        last_name: editLastName.trim(),
+                      });
+                    }
+
                     const updated = {
                       ...(userData ?? {}),
                       email: editEmail,
@@ -459,8 +527,12 @@ export default function ProfileScreen() {
                       JSON.stringify(updated)
                     );
                     setUserData(updated);
+                    setFirstName(editFirstName.trim());
+                    setLastName(editLastName.trim());
                     Alert.alert("Saved", "Profile updated successfully.");
                     setIsEditVisible(false);
+                    setEditFirstName("");
+                    setEditLastName("");
                     setNewPassword("");
                     setConfirmPassword("");
                   } catch (error) {
@@ -665,5 +737,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 6,
+  },
+  textInput: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
 });

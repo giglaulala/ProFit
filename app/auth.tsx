@@ -34,9 +34,7 @@ export default function AuthScreen() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [gender, setGender] = useState<"male" | "female" | "other" | null>(
-    null
-  );
+  const [gender, setGender] = useState<"male" | "female" | null>(null);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -318,7 +316,6 @@ export default function AuthScreen() {
               {[
                 { key: "male", label: "Male" },
                 { key: "female", label: "Female" },
-                { key: "other", label: "Other" },
               ].map((g) => (
                 <TouchableOpacity
                   key={g.key}
@@ -615,13 +612,15 @@ const styles = StyleSheet.create({
   },
   choiceRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: 12,
     marginTop: 8,
   },
   choiceChip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    flex: 1,
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    alignItems: "center",
   },
   footer: {
     flexDirection: "row",

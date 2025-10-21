@@ -121,7 +121,14 @@ export default function VideoPlayer({
           <View
             style={[
               styles.videoContainer,
-              { backgroundColor: colors.darkGray },
+              {
+                backgroundColor: colors.darkGray,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 8,
+              },
             ]}
           >
             {video.type === "local" && video.localPath ? (
@@ -137,11 +144,15 @@ export default function VideoPlayer({
               />
             ) : (
               <View style={styles.remoteVideoContainer}>
-                <Ionicons name="globe" size={60} color={colors.secondary} />
-                <Text
-                  style={[styles.videoTypeText, { color: colors.secondary }]}
-                >
-                  ONLINE VIDEO
+                <View style={styles.videoIconContainer}>
+                  <Ionicons
+                    name="play-circle"
+                    size={80}
+                    color={colors.primary}
+                  />
+                </View>
+                <Text style={[styles.videoTypeText, { color: colors.text }]}>
+                  {video.title}
                 </Text>
                 <Text style={[styles.duration, { color: colors.text }]}>
                   {video.duration}
@@ -149,14 +160,18 @@ export default function VideoPlayer({
                 <View
                   style={[
                     styles.videoInfo,
-                    { backgroundColor: colors.secondary + "20" },
+                    { backgroundColor: colors.primary + "20" },
                   ]}
                 >
-                  <Ionicons name="wifi" size={16} color={colors.secondary} />
+                  <Ionicons
+                    name="globe-outline"
+                    size={16}
+                    color={colors.primary}
+                  />
                   <Text
-                    style={[styles.videoInfoText, { color: colors.secondary }]}
+                    style={[styles.videoInfoText, { color: colors.primary }]}
                   >
-                    Requires internet connection
+                    Tap to open in browser
                   </Text>
                 </View>
               </View>
@@ -303,12 +318,14 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   videoContainer: {
-    height: 200,
+    height: 250,
     borderRadius: 12,
     marginBottom: 20,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   localVideoContainer: {
     alignItems: "center",
@@ -319,6 +336,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
+  },
+  videoIconContainer: {
+    marginBottom: 15,
   },
   videoTypeText: {
     marginTop: 10,
@@ -422,5 +442,6 @@ const styles = StyleSheet.create({
   video: {
     width: "100%",
     height: "100%",
+    borderRadius: 10,
   },
 });

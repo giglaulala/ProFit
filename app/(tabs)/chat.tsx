@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import Constants from "expo-constants";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -31,7 +30,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "Hello! I'm your ProFit AI assistant. How can I help you with your fitness journey today?",
+      text: "Hello! I'm your ProFit AI assistant. This chat feature is currently under construction and will be available soon. Thank you for your patience!",
       isUser: false,
       timestamp: new Date(),
     },
@@ -86,60 +85,18 @@ export default function ChatScreen() {
       setMessages((prev) => [...prev, newMessage]);
       setInputText("");
       setIsLoading(true);
-      try {
-        const configuredBaseUrl =
-          (Constants?.expoConfig as any)?.extra?.apiBaseUrl ||
-          "http://localhost:3000";
-        const apiBaseUrl =
-          Platform.OS === "android" && configuredBaseUrl.includes("localhost")
-            ? configuredBaseUrl.replace("localhost", "10.0.2.2")
-            : configuredBaseUrl;
-        const response = await fetch(`${apiBaseUrl}/api/chat`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are ProFit AI, a helpful fitness assistant. Be concise, practical, and safe.",
-              },
-              ...[...messages, newMessage].map((m) => ({
-                role: m.isUser ? "user" : "assistant",
-                content: m.text,
-              })),
-            ],
-          }),
-        });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || "Failed to fetch AI response");
-        }
-
-        const data = await response.json();
-        const aiText =
-          data?.content || "Sorry, I could not generate a response.";
+      // Simulate loading time
+      setTimeout(() => {
         const aiResponse: Message = {
           id: (Date.now() + 1).toString(),
-          text: aiText,
+          text: "🚧 This chat feature is currently under construction and will be available soon! We're working hard to bring you an amazing AI fitness assistant. Thank you for your patience!",
           isUser: false,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, aiResponse]);
-      } catch (error) {
-        const aiResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          text: "There was an error contacting the AI. Please try again.",
-          isUser: false,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, aiResponse]);
-      } finally {
         setIsLoading(false);
-      }
+      }, 1500); // 1.5 second delay to simulate loading
     }
   };
 
