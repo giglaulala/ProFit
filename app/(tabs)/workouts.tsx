@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useMemo, useState } from "react";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -29,9 +30,7 @@ export default function WorkoutsScreen() {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState<"gym" | "home">("gym");
-  const [mode, setMode] = useState<"body" | "category">("body");
   const [selectedBody, setSelectedBody] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [expandedFlowIndex, setExpandedFlowIndex] = useState<number | null>(
     null
   );
@@ -45,36 +44,84 @@ export default function WorkoutsScreen() {
 
   const bodyParts = useMemo(
     () => [
-      { key: "chest", title: "Chest", icon: "body", color: colors.primary },
-      { key: "back", title: "Back", icon: "barbell", color: colors.secondary },
       {
-        key: "shoulders",
-        title: "Shoulders",
-        icon: "fitness",
-        color: colors.accent,
-      },
-      { key: "legs", title: "Legs", icon: "walk", color: colors.darkGreen },
-      { key: "core", title: "Core", icon: "trail-sign", color: colors.blue },
-    ],
-    [colors]
-  );
-
-  const categories = useMemo(
-    () => [
-      {
-        key: "strength",
-        title: "Strength",
-        icon: "barbell",
+        key: "chest",
+        title: "Chest",
+        image: require("../../assets/images/chest.png"),
         color: colors.primary,
       },
       {
-        key: "cardio",
-        title: "Cardio",
-        icon: "heart",
+        key: "lats",
+        title: "Lats",
+        image: require("../../assets/images/lats.png"),
         color: colors.secondary,
       },
-      { key: "hiit", title: "HIIT", icon: "flash", color: colors.accent },
-      { key: "yoga", title: "Yoga", icon: "leaf", color: colors.darkGreen },
+      {
+        key: "shoulders",
+        title: "Shoulders",
+        image: require("../../assets/images/shoulder.png"),
+        color: colors.accent,
+      },
+      {
+        key: "traps",
+        title: "Traps",
+        image: require("../../assets/images/traps.png"),
+        color: "#FF6B6B",
+      },
+      {
+        key: "triceps",
+        title: "Triceps",
+        image: require("../../assets/images/triceps.png"),
+        color: "#4ECDC4",
+      },
+      {
+        key: "biceps",
+        title: "Biceps",
+        image: require("../../assets/images/biceps.png"),
+        color: "#00D4AA",
+      },
+      {
+        key: "quads",
+        title: "Quads",
+        image: require("../../assets/images/quads.png"),
+        color: colors.darkGreen,
+      },
+      {
+        key: "hamstrings",
+        title: "Hamstrings",
+        image: require("../../assets/images/hamstrings.png"),
+        color: "#FF6B6B",
+      },
+      {
+        key: "glutes",
+        title: "Glutes",
+        image: require("../../assets/images/glutes.png"),
+        color: "#FF9F43",
+      },
+      {
+        key: "calves",
+        title: "Calves",
+        image: require("../../assets/images/calves.png"),
+        color: "#6C5CE7",
+      },
+      {
+        key: "forearms",
+        title: "Forearms",
+        image: require("../../assets/images/forearms.png"),
+        color: "#A29BFE",
+      },
+      {
+        key: "abdomen",
+        title: "Abdomen",
+        image: require("../../assets/images/abdomen.png"),
+        color: colors.blue,
+      },
+      {
+        key: "lowerback",
+        title: "Lower Back",
+        image: require("../../assets/images/lowerback.png"),
+        color: "#8B5CF6",
+      },
     ],
     [colors]
   );
@@ -83,31 +130,20 @@ export default function WorkoutsScreen() {
   const videosByBody: Record<string, string[]> = useMemo(
     () => ({
       chest: ["bench-press", "dumbbell-fly", "push-ups", "incline-press"],
-      back: ["pull-ups", "bent-over-rows", "lat-pulldowns"],
+      lats: ["pull-ups", "lat-pulldowns", "bent-over-rows"],
       shoulders: ["military-press", "lateral-raises", "front-raises"],
-      legs: ["squats", "lunges", "deadlifts", "calf-raises"],
-      core: ["push-ups", "plank"].filter(
+      traps: ["military-press", "bent-over-rows"], // Compound movements that work traps
+      triceps: ["push-ups", "bench-press", "military-press"], // Compound movements that work triceps
+      biceps: ["pull-ups", "bent-over-rows"], // Compound movements that work biceps
+      quads: ["squats", "lunges"], // Direct quad exercises
+      hamstrings: ["deadlifts", "lunges"], // Direct hamstring exercises
+      glutes: ["squats", "lunges", "deadlifts"], // Compound movements that work glutes
+      calves: ["calf-raises", "squats", "lunges"], // Direct and indirect calf work
+      forearms: ["pull-ups", "bent-over-rows"], // Grip-intensive exercises
+      abdomen: ["push-ups", "plank"].filter(
         (id) => workoutVideos[id as keyof typeof workoutVideos]
       ),
-    }),
-    []
-  );
-
-  // Simple mapping of videos by category
-  const videosByCategory: Record<string, string[]> = useMemo(
-    () => ({
-      strength: [
-        "bench-press",
-        "dumbbell-fly",
-        "deadlifts",
-        "lat-pulldowns",
-        "military-press",
-        "squats",
-        "bent-over-rows",
-      ],
-      cardio: ["running", "cycling", "jump-rope"],
-      hiit: ["jump-rope", "push-ups", "lunges"],
-      yoga: [],
+      lowerback: ["deadlifts", "bent-over-rows"], // Lower back strengthening
     }),
     []
   );
@@ -180,22 +216,11 @@ export default function WorkoutsScreen() {
     b.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredCategories = categories.filter((c) =>
-    c.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   const currentVideoIds = useMemo(() => {
-    const base =
-      mode === "body"
-        ? selectedBody
-          ? videosByBody[selectedBody] || []
-          : []
-        : selectedCategory
-        ? videosByCategory[selectedCategory] || []
-        : [];
+    const base = selectedBody ? videosByBody[selectedBody] || [] : [];
     const allowed = locationAllowed[locationFilter];
     return base.filter((id) => allowed.size === 0 || allowed.has(id));
-  }, [mode, selectedBody, selectedCategory, locationFilter]);
+  }, [selectedBody, locationFilter]);
 
   const currentVideos = useMemo(
     () =>
@@ -272,92 +297,42 @@ export default function WorkoutsScreen() {
           </View>
         </View>
 
-        {/* Mode Toggle */}
-        <View style={styles.segmentContainer}>
-          <View style={[styles.segment, { backgroundColor: colors.lightGray }]}>
-            {(["body", "category"] as const).map((opt) => (
-              <TouchableOpacity
-                key={opt}
-                style={[
-                  styles.segmentButton,
-                  {
-                    backgroundColor:
-                      mode === opt ? colors.secondary : "transparent",
-                  },
-                ]}
-                onPress={() => {
-                  setMode(opt);
-                  setSelectedBody(null);
-                  setSelectedCategory(null);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.segmentLabel,
-                    { color: mode === opt ? colors.black : colors.text },
-                  ]}
-                >
-                  {opt === "body" ? t("workouts.body") : t("workouts.category")}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Selector Grid */}
+        {/* Muscle Selection */}
         <View style={styles.categoriesContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {mode === "body"
-              ? t("workouts.bodySelection")
-              : t("workouts.categories")}
+            Pick a muscle
           </Text>
           <View style={styles.categoriesGrid}>
-            {(mode === "body" ? filteredBodies : filteredCategories).map(
-              (item) => {
-                const isActive =
-                  mode === "body"
-                    ? selectedBody === item.key
-                    : selectedCategory === item.key;
-                return (
-                  <TouchableOpacity
-                    key={item.key}
-                    style={[
-                      styles.categoryCard,
-                      {
-                        backgroundColor: isActive
-                          ? item.color
-                          : colors.lightGray,
-                      },
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      if (mode === "body") {
-                        setSelectedBody(item.key);
-                      } else {
-                        setSelectedCategory(item.key);
-                      }
-                    }}
-                  >
-                    <Ionicons
-                      name={item.icon as any}
-                      size={32}
-                      color={isActive ? colors.black : item.color}
-                    />
-                    <Text
-                      style={[styles.categoryTitle, { color: colors.text }]}
-                    >
-                      {item.title}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }
-            )}
+            {filteredBodies.map((item) => {
+              const isActive = selectedBody === item.key;
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[
+                    styles.categoryCard,
+                    {
+                      backgroundColor: isActive ? item.color : colors.lightGray,
+                    },
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => setSelectedBody(item.key)}
+                >
+                  <Image
+                    source={item.image}
+                    style={styles.muscleImage}
+                    resizeMode="contain"
+                  />
+                  <Text style={[styles.categoryTitle, { color: colors.text }]}>
+                    {item.title}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
         {/* Videos List based on selection */}
-        {(selectedBody || selectedCategory) && (
+        {selectedBody && (
           <View style={styles.popularContainer}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               {t("workouts.videos")}
@@ -683,6 +658,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginTop: 10,
     textAlign: "center",
+  },
+  muscleImage: {
+    width: 40,
+    height: 40,
   },
   categoryCount: {
     fontSize: 12,

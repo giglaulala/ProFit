@@ -560,17 +560,17 @@ export default function DashboardScreen() {
   const getMuscleGroupImage = (muscleGroup: string) => {
     switch (muscleGroup) {
       case "chest":
-        return require("../../assets/images/muscles.png");
+        return require("../../assets/images/chest.png");
       case "legs":
-        return require("../../assets/images/gym.png");
+        return require("../../assets/images/quads.png");
       case "shoulders":
         return require("../../assets/images/shoulder.png");
       case "back":
-        return require("../../assets/images/muscles.png");
+        return require("../../assets/images/lats.png");
       case "arms":
-        return require("../../assets/images/gym.png");
+        return require("../../assets/images/biceps.png");
       case "abs":
-        return require("../../assets/images/muscles.png");
+        return require("../../assets/images/abdomen.png");
       case "cardio":
         return require("../../assets/images/gym.png");
       default:
@@ -2325,7 +2325,7 @@ export default function DashboardScreen() {
                 <View style={styles.muscleGroupIcons}>
                   <View style={styles.muscleGroupItem}>
                     <Image
-                      source={require("../../assets/images/muscles.png")}
+                      source={require("../../assets/images/gym.png")}
                       style={styles.muscleGroupImage}
                     />
                     <Text
@@ -2417,7 +2417,7 @@ export default function DashboardScreen() {
                             <>
                               <View style={styles.exerciseMuscleItem}>
                                 <Image
-                                  source={require("../../assets/images/muscles.png")}
+                                  source={require("../../assets/images/gym.png")}
                                   style={styles.exerciseMuscleIcon}
                                 />
                                 <Text
@@ -2495,7 +2495,7 @@ export default function DashboardScreen() {
                             <>
                               <View style={styles.exerciseMuscleItem}>
                                 <Image
-                                  source={require("../../assets/images/muscles.png")}
+                                  source={require("../../assets/images/gym.png")}
                                   style={styles.exerciseMuscleIcon}
                                 />
                                 <Text
