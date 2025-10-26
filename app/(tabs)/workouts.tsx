@@ -311,7 +311,9 @@ export default function WorkoutsScreen() {
                   style={[
                     styles.categoryCard,
                     {
-                      backgroundColor: isActive ? item.color : colors.lightGray,
+                      backgroundColor: isActive
+                        ? colors.primary
+                        : colors.lightGray,
                     },
                   ]}
                   activeOpacity={0.8}
@@ -322,7 +324,12 @@ export default function WorkoutsScreen() {
                     style={styles.muscleImage}
                     resizeMode="contain"
                   />
-                  <Text style={[styles.categoryTitle, { color: colors.text }]}>
+                  <Text
+                    style={[
+                      styles.categoryTitle,
+                      { color: isActive ? colors.black : colors.text },
+                    ]}
+                  >
                     {item.title}
                   </Text>
                 </TouchableOpacity>

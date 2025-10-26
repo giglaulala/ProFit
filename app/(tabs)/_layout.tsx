@@ -62,13 +62,14 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* 2. Camera (regular tab) */}
+      {/* 2. Calendar */}
       <Tabs.Screen
-        name="tracking"
+        name="calendar"
         options={{
-          title: "",
-          tabBarLabel: "Scan",
-          tabBarIcon: ({ color }) => <TabBarIcon name="camera" color={color} />,
+          title: "Calendar",
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="calendar" color={color} />
+          ),
         }}
       />
       {/* 3. Chat (center floating) */}
@@ -89,12 +90,20 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* 5. Profile (unchanged) */}
+      {/* 5. Scan */}
+      <Tabs.Screen
+        name="tracking"
+        options={{
+          title: "",
+          tabBarLabel: "Scan",
+          tabBarIcon: ({ color }) => <TabBarIcon name="camera" color={color} />,
+        }}
+      />
+      {/* Hide Profile from tab bar */}
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color }) => <TabBarIcon name="person" color={color} />,
+          href: null,
         }}
       />
       {/* Hide Progress from tab bar */}

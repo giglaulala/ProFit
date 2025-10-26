@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
@@ -108,6 +109,7 @@ export default function DashboardScreen() {
     "amateur" | "beginner" | "medium" | "experienced" | "professional"
   >("amateur");
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [firstName, setFirstName] = useState<string>("");
 
   // Monthly Goals State
   const [monthlyGoals, setMonthlyGoals] = useState({
@@ -619,6 +621,16 @@ export default function DashboardScreen() {
               if (typeof s.freeDays === "number") setFreeDays(s.freeDays);
               if (typeof s.goal === "string") setSelectedWorkoutGoal(s.goal);
             }
+          }
+
+          // Load user's first name from profiles table
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("first_name")
+            .eq("id", userId)
+            .maybeSingle();
+          if (profile?.first_name) {
+            setFirstName(profile.first_name);
           }
 
           // Load monthly goals and progress
@@ -1556,6 +1568,31 @@ export default function DashboardScreen() {
           imageStyle={styles.headerBackgroundImage}
         >
           <View style={styles.headerOverlay}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}
+            >
+              <Text style={[styles.greetingText, { color: colors.text }]}>
+                Hello {firstName || ""}!
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push("/_profile")}
+                activeOpacity={0.7}
+              >
+                <View
+                  style={[
+                    styles.profileIconContainer,
+                    { backgroundColor: colors.primary },
+                  ]}
+                >
+                  <Ionicons name="person" size={20} color={colors.black} />
+                </View>
+              </TouchableOpacity>
+            </View>
             <Text style={[styles.appTitle, { color: colors.text }]}>
               ProFit
             </Text>
@@ -3055,10 +3092,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     opacity: 0.7,
   },
+  greetingText: {
+    fontSize: 20,
+    fontWeight: "600",
+  },
   greeting: {
     fontSize: 36,
     fontWeight: "bold",
     lineHeight: 42,
+  },
+  profileIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   statsContainer: {
     padding: 20,
