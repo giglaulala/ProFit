@@ -58,6 +58,7 @@ export default function CalendarScreen() {
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutDay | null>(
     null
   );
+  const [calendarExercises, setCalendarExercises] = useState<any[]>([]);
   const [workoutRunning, setWorkoutRunning] = useState(false);
   const [workoutStartAt, setWorkoutStartAt] = useState<number | null>(null);
   const [workoutPopupStartTime, setWorkoutPopupStartTime] = useState<
@@ -410,6 +411,23 @@ export default function CalendarScreen() {
     setShowCustomAlert(true);
   };
 
+  // Get all unique muscles worked in the current workout
+  const getAllMusclesWorked = (): string[] => {
+    if (calendarExercises.length > 0) {
+      const allMuscles = calendarExercises.flatMap(
+        (ex: any) => ex.muscleGroups || []
+      );
+      return [...new Set(allMuscles)];
+    }
+    if (selectedWorkout && workoutDetails[selectedWorkout.type]) {
+      const allMuscles = workoutDetails[selectedWorkout.type].exercises.flatMap(
+        (ex: any) => (ex.muscleGroup ? [ex.muscleGroup] : [])
+      );
+      return [...new Set(allMuscles)];
+    }
+    return [];
+  };
+
   const handleFinishWorkout = async () => {
     // Check if all exercises are completed
     if (selectedWorkout) {
@@ -559,24 +577,37 @@ export default function CalendarScreen() {
   };
 
   const getMuscleGroupImage = (muscleGroup: string) => {
-    switch (muscleGroup) {
-      case "chest":
-        return require("../../assets/images/chest.png");
-      case "legs":
-        return require("../../assets/images/quads.png");
-      case "shoulders":
-        return require("../../assets/images/shoulder.png");
-      case "back":
-        return require("../../assets/images/lats.png");
-      case "arms":
-        return require("../../assets/images/biceps.png");
-      case "abs":
-        return require("../../assets/images/abdomen.png");
-      case "cardio":
-        return require("../../assets/images/gym.png");
-      default:
-        return require("../../assets/images/gym.png");
-    }
+    const mg = muscleGroup.toLowerCase();
+
+    // Map specific muscle groups to their images
+    if (mg === "chest") return require("../../assets/images/chest.png");
+    if (mg === "shoulders") return require("../../assets/images/shoulder.png");
+    if (mg === "back" || mg === "lats")
+      return require("../../assets/images/lats.png");
+    if (mg === "legs" || mg === "quads")
+      return require("../../assets/images/quads.png");
+    if (mg === "hamstrings")
+      return require("../../assets/images/hamstrings.png");
+    if (mg === "glutes") return require("../../assets/images/glutes.png");
+    if (mg === "calves") return require("../../assets/images/calves.png");
+    if (mg === "arms" || mg === "biceps")
+      return require("../../assets/images/biceps.png");
+    if (mg === "triceps") return require("../../assets/images/triceps.png");
+    if (mg === "forearms") return require("../../assets/images/forearms.png");
+    if (mg === "traps") return require("../../assets/images/traps.png");
+    if (mg === "lowerback") return require("../../assets/images/lowerback.png");
+    if (mg === "abs" || mg === "abdomen" || mg === "core")
+      return require("../../assets/images/abdomen.png");
+
+    // Special categories
+    if (mg === "cardio") return require("../../assets/images/gym.png");
+    if (mg === "full" || mg === "fullbody")
+      return require("../../assets/images/gym.png");
+    if (mg === "mobility") return require("../../assets/images/abdomen.png");
+    if (mg === "explosive") return require("../../assets/images/quads.png");
+
+    // Default fallback
+    return require("../../assets/images/gym.png");
   };
 
   useEffect(() => {
@@ -743,6 +774,8 @@ export default function CalendarScreen() {
       // Map entry to our WorkoutDay type for the modal
       const first = maybePlanEntry.entries?.[0];
       const type = inferWorkoutType(first?.muscleGroups || []);
+      // Store the exercises from the calendar
+      setCalendarExercises(maybePlanEntry.entries || []);
       handleWorkoutPress({
         date,
         workout: first?.name || workout.workout,
@@ -750,6 +783,8 @@ export default function CalendarScreen() {
       });
       return;
     }
+    // Reset calendar exercises if using default workout
+    setCalendarExercises([]);
     handleWorkoutPress(workout);
   };
 
@@ -1971,9 +2006,26 @@ export default function CalendarScreen() {
             ]}
           >
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {selectedWorkout && workoutDetails[selectedWorkout.type]?.title}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  {selectedWorkout &&
+                    workoutDetails[selectedWorkout.type]?.title}
+                </Text>
+                {workoutRunning && (
+                  <View style={styles.muscleGroupsInHeader}>
+                    {getAllMusclesWorked()
+                      .slice(0, 5)
+                      .map((muscle: string, index: number) => (
+                        <View key={index} style={styles.headerMuscleItem}>
+                          <Image
+                            source={getMuscleGroupImage(muscle)}
+                            style={styles.headerMuscleIcon}
+                          />
+                        </View>
+                      ))}
+                  </View>
+                )}
+              </View>
               <TouchableOpacity onPress={() => setShowWorkoutModal(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
@@ -2006,223 +2058,119 @@ export default function CalendarScreen() {
                   Muscles Worked
                 </Text>
                 <View style={styles.muscleGroupIcons}>
-                  <View style={styles.muscleGroupItem}>
-                    <Image
-                      source={require("../../assets/images/gym.png")}
-                      style={styles.muscleGroupImage}
-                    />
-                    <Text
-                      style={[styles.muscleGroupName, { color: colors.text }]}
-                    >
-                      Triceps
-                    </Text>
-                  </View>
-                  <View style={styles.muscleGroupItem}>
-                    <Image
-                      source={require("../../assets/images/gym.png")}
-                      style={styles.muscleGroupImage}
-                    />
-                    <Text
-                      style={[styles.muscleGroupName, { color: colors.text }]}
-                    >
-                      Chest
-                    </Text>
-                  </View>
-                  <View style={styles.muscleGroupItem}>
-                    <Image
-                      source={require("../../assets/images/shoulder.png")}
-                      style={styles.muscleGroupImage}
-                    />
-                    <Text
-                      style={[styles.muscleGroupName, { color: colors.text }]}
-                    >
-                      Shoulders
-                    </Text>
-                  </View>
+                  {getAllMusclesWorked().map(
+                    (muscle: string, index: number) => (
+                      <View key={index} style={styles.muscleGroupItem}>
+                        <Image
+                          source={getMuscleGroupImage(muscle)}
+                          style={styles.muscleGroupImage}
+                        />
+                        <Text
+                          style={[
+                            styles.muscleGroupName,
+                            { color: colors.text },
+                          ]}
+                        >
+                          {muscle
+                            .split("_")
+                            .map(
+                              (word) =>
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                            )
+                            .join(" ")}
+                        </Text>
+                      </View>
+                    )
+                  )}
                 </View>
               </View>
             )}
 
             {workoutRunning && (
               <ScrollView style={styles.modalBody}>
-                {selectedWorkout &&
-                  workoutDetails[selectedWorkout.type]?.exercises.map(
-                    (exercise, index) => (
-                      <View
-                        key={index}
+                {(calendarExercises.length > 0
+                  ? calendarExercises
+                  : selectedWorkout &&
+                    workoutDetails[selectedWorkout.type]?.exercises
+                )?.map((exercise: any, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.exerciseCard,
+                      { backgroundColor: colors.lightGray },
+                    ]}
+                  >
+                    <View style={styles.exerciseHeader}>
+                      <View style={styles.exerciseTitleContainer}>
+                        <Text
+                          style={[styles.exerciseName, { color: colors.text }]}
+                        >
+                          {exercise.name}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
                         style={[
-                          styles.exerciseCard,
+                          styles.videoButton,
                           { backgroundColor: colors.lightGray },
                         ]}
+                        onPress={() =>
+                          handleVideoPress(
+                            exercise.name,
+                            exercise.equipment as any
+                          )
+                        }
                       >
-                        <View style={styles.exerciseHeader}>
-                          <View style={styles.exerciseTitleContainer}>
-                            <Text
-                              style={[
-                                styles.exerciseName,
-                                { color: colors.text },
-                              ]}
-                            >
-                              {exercise.name}
-                            </Text>
-                          </View>
-                          <TouchableOpacity
+                        <Ionicons
+                          name="play"
+                          size={16}
+                          color={colors.primary}
+                        />
+                        <Text
+                          style={[
+                            styles.videoButtonText,
+                            { color: colors.primary },
+                          ]}
+                        >
+                          Video
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Exercise Muscle Groups */}
+                    <View style={styles.exerciseMuscleGroups}>
+                      {(
+                        exercise.muscleGroups ||
+                        (exercise.muscleGroup ? [exercise.muscleGroup] : [])
+                      ).map((muscle: string, muscleIndex: number) => (
+                        <View
+                          key={muscleIndex}
+                          style={styles.exerciseMuscleItem}
+                        >
+                          <Image
+                            source={getMuscleGroupImage(muscle)}
+                            style={styles.exerciseMuscleIcon}
+                          />
+                          <Text
                             style={[
-                              styles.videoButton,
-                              { backgroundColor: colors.lightGray },
+                              styles.exerciseMuscleName,
+                              { color: colors.text },
                             ]}
-                            onPress={() =>
-                              handleVideoPress(
-                                exercise.name,
-                                exercise.equipment as any
-                              )
-                            }
                           >
-                            <Ionicons
-                              name="play"
-                              size={16}
-                              color={colors.primary}
-                            />
-                            <Text
-                              style={[
-                                styles.videoButtonText,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              Video
-                            </Text>
-                          </TouchableOpacity>
+                            {muscle
+                              .split("_")
+                              .map(
+                                (word) =>
+                                  word.charAt(0).toUpperCase() + word.slice(1)
+                              )
+                              .join(" ")}
+                          </Text>
                         </View>
+                      ))}
+                    </View>
 
-                        {/* Exercise Muscle Groups */}
-                        <View style={styles.exerciseMuscleGroups}>
-                          {exercise.name === "Bench Press" && (
-                            <>
-                              <View style={styles.exerciseMuscleItem}>
-                                <Image
-                                  source={require("../../assets/images/gym.png")}
-                                  style={styles.exerciseMuscleIcon}
-                                />
-                                <Text
-                                  style={[
-                                    styles.exerciseMuscleName,
-                                    { color: colors.text },
-                                  ]}
-                                >
-                                  Triceps
-                                </Text>
-                              </View>
-                              <View style={styles.exerciseMuscleItem}>
-                                <Image
-                                  source={require("../../assets/images/gym.png")}
-                                  style={styles.exerciseMuscleIcon}
-                                />
-                                <Text
-                                  style={[
-                                    styles.exerciseMuscleName,
-                                    { color: colors.text },
-                                  ]}
-                                >
-                                  Chest
-                                </Text>
-                              </View>
-                              <View style={styles.exerciseMuscleItem}>
-                                <Image
-                                  source={require("../../assets/images/shoulder.png")}
-                                  style={styles.exerciseMuscleIcon}
-                                />
-                                <Text
-                                  style={[
-                                    styles.exerciseMuscleName,
-                                    { color: colors.text },
-                                  ]}
-                                >
-                                  Shoulders
-                                </Text>
-                              </View>
-                            </>
-                          )}
-                          {exercise.name === "Cable Fly" && (
-                            <>
-                              <View style={styles.exerciseMuscleItem}>
-                                <Image
-                                  source={require("../../assets/images/gym.png")}
-                                  style={styles.exerciseMuscleIcon}
-                                />
-                                <Text
-                                  style={[
-                                    styles.exerciseMuscleName,
-                                    { color: colors.text },
-                                  ]}
-                                >
-                                  Chest
-                                </Text>
-                              </View>
-                              <View style={styles.exerciseMuscleItem}>
-                                <Image
-                                  source={require("../../assets/images/shoulder.png")}
-                                  style={styles.exerciseMuscleIcon}
-                                />
-                                <Text
-                                  style={[
-                                    styles.exerciseMuscleName,
-                                    { color: colors.text },
-                                  ]}
-                                >
-                                  Shoulders
-                                </Text>
-                              </View>
-                            </>
-                          )}
-                          {exercise.name === "Push-ups" && (
-                            <>
-                              <View style={styles.exerciseMuscleItem}>
-                                <Image
-                                  source={require("../../assets/images/gym.png")}
-                                  style={styles.exerciseMuscleIcon}
-                                />
-                                <Text
-                                  style={[
-                                    styles.exerciseMuscleName,
-                                    { color: colors.text },
-                                  ]}
-                                >
-                                  Triceps
-                                </Text>
-                              </View>
-                              <View style={styles.exerciseMuscleItem}>
-                                <Image
-                                  source={require("../../assets/images/gym.png")}
-                                  style={styles.exerciseMuscleIcon}
-                                />
-                                <Text
-                                  style={[
-                                    styles.exerciseMuscleName,
-                                    { color: colors.text },
-                                  ]}
-                                >
-                                  Chest
-                                </Text>
-                              </View>
-                              <View style={styles.exerciseMuscleItem}>
-                                <Image
-                                  source={require("../../assets/images/shoulder.png")}
-                                  style={styles.exerciseMuscleIcon}
-                                />
-                                <Text
-                                  style={[
-                                    styles.exerciseMuscleName,
-                                    { color: colors.text },
-                                  ]}
-                                >
-                                  Shoulders
-                                </Text>
-                              </View>
-                            </>
-                          )}
-                        </View>
-
-                        <View style={styles.exerciseDetails}>
+                    <View style={styles.exerciseDetails}>
+                      {exercise.sets ? (
+                        <>
                           <View style={styles.exerciseDetail}>
                             <Text
                               style={[
@@ -2277,38 +2225,96 @@ export default function CalendarScreen() {
                               {exercise.rest}
                             </Text>
                           </View>
-                        </View>
+                        </>
+                      ) : (
+                        <>
+                          <View style={styles.exerciseDetail}>
+                            <Text
+                              style={[
+                                styles.detailLabel,
+                                { color: colors.text },
+                              ]}
+                            >
+                              Sets:
+                            </Text>
+                            <Text
+                              style={[
+                                styles.detailValue,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              3-4
+                            </Text>
+                          </View>
+                          <View style={styles.exerciseDetail}>
+                            <Text
+                              style={[
+                                styles.detailLabel,
+                                { color: colors.text },
+                              ]}
+                            >
+                              Reps:
+                            </Text>
+                            <Text
+                              style={[
+                                styles.detailValue,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              8-12
+                            </Text>
+                          </View>
+                          <View style={styles.exerciseDetail}>
+                            <Text
+                              style={[
+                                styles.detailLabel,
+                                { color: colors.text },
+                              ]}
+                            >
+                              Rest:
+                            </Text>
+                            <Text
+                              style={[
+                                styles.detailValue,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              2-3 min
+                            </Text>
+                          </View>
+                        </>
+                      )}
+                    </View>
 
-                        <TouchableOpacity
-                          style={[
-                            styles.timerButton,
-                            { backgroundColor: colors.darkGray },
-                          ]}
-                          onPress={() => toggleExerciseCompleted(index)}
-                        >
-                          <Ionicons
-                            name={
-                              completedExerciseIdxs.has(index)
-                                ? "checkbox"
-                                : "square-outline"
-                            }
-                            size={16}
-                            color={colors.primary}
-                          />
-                          <Text
-                            style={[
-                              styles.timerButtonText,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {completedExerciseIdxs.has(index)
-                              ? t("dashboard.completed")
-                              : t("dashboard.markCompleted")}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )
-                  )}
+                    <TouchableOpacity
+                      style={[
+                        styles.timerButton,
+                        { backgroundColor: colors.darkGray },
+                      ]}
+                      onPress={() => toggleExerciseCompleted(index)}
+                    >
+                      <Ionicons
+                        name={
+                          completedExerciseIdxs.has(index)
+                            ? "checkbox"
+                            : "square-outline"
+                        }
+                        size={16}
+                        color={colors.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.timerButtonText,
+                          { color: colors.primary },
+                        ]}
+                      >
+                        {completedExerciseIdxs.has(index)
+                          ? t("dashboard.completed")
+                          : t("dashboard.markCompleted")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
               </ScrollView>
             )}
 
@@ -3099,6 +3105,24 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
   },
+  muscleGroupsInHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
+  },
+  headerMuscleItem: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "rgba(226, 255, 0, 0.1)",
+  },
+  headerMuscleIcon: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "contain",
+  },
   modalBody: {
     maxHeight: 400,
   },
@@ -3288,21 +3312,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 15,
-    marginBottom: 10,
+    gap: 20,
+    marginBottom: 12,
+    flexWrap: "wrap",
   },
   exerciseMuscleItem: {
     alignItems: "center",
   },
   exerciseMuscleIcon: {
-    width: 20,
-    height: 20,
+    width: 40,
+    height: 40,
     resizeMode: "contain",
   },
   exerciseMuscleName: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
-    marginTop: 4,
+    marginTop: 6,
+    textAlign: "center",
   },
   alertMessage: {
     fontSize: 16,
