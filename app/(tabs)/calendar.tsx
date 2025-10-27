@@ -428,6 +428,82 @@ export default function CalendarScreen() {
     return [];
   };
 
+  // Get appropriate sets, reps, and rest based on exercise characteristics
+  const getExerciseParams = (exercise: any) => {
+    const muscleGroups = exercise.muscleGroups || [];
+    const muscleStr = muscleGroups.join(" ").toLowerCase();
+
+    // Cardio exercises
+    if (
+      muscleStr.includes("cardio") ||
+      exercise.name.toLowerCase().includes("run") ||
+      exercise.name.toLowerCase().includes("jog") ||
+      exercise.name.toLowerCase().includes("interval") ||
+      exercise.name.toLowerCase().includes("tempo") ||
+      exercise.name.toLowerCase().includes("row") ||
+      exercise.name.toLowerCase().includes("bike") ||
+      exercise.name.toLowerCase().includes("cycle")
+    ) {
+      return {
+        sets: "1",
+        reps: `${Math.round((exercise.durationSec || 1800) / 60)} min`,
+        rest: "-",
+      };
+    }
+
+    // Mobility/Flexibility exercises
+    if (
+      muscleStr.includes("mobility") ||
+      exercise.name.toLowerCase().includes("stretch") ||
+      exercise.name.toLowerCase().includes("mobility") ||
+      exercise.name.toLowerCase().includes("flexibility")
+    ) {
+      return { sets: "2-3", reps: "30-60s", rest: "30s" };
+    }
+
+    // Explosive/Plyometric exercises
+    if (
+      muscleStr.includes("explosive") ||
+      exercise.name.toLowerCase().includes("jump") ||
+      exercise.name.toLowerCase().includes("sprint") ||
+      exercise.name.toLowerCase().includes("plyo")
+    ) {
+      return { sets: "4-5", reps: "6-10", rest: "2-3 min" };
+    }
+
+    // Lower body strength
+    if (
+      muscleStr.includes("legs") ||
+      muscleStr.includes("quads") ||
+      muscleStr.includes("hamstrings") ||
+      muscleStr.includes("glutes") ||
+      muscleStr.includes("squat")
+    ) {
+      return { sets: "4-5", reps: "6-10", rest: "2-3 min" };
+    }
+
+    // Upper body strength
+    if (
+      muscleStr.includes("chest") ||
+      muscleStr.includes("shoulder") ||
+      muscleStr.includes("back") ||
+      muscleStr.includes("press") ||
+      muscleStr.includes("row") ||
+      exercise.name.toLowerCase().includes("press") ||
+      exercise.name.toLowerCase().includes("row")
+    ) {
+      return { sets: "4-5", reps: "6-10", rest: "2-3 min" };
+    }
+
+    // Full body or default strength training
+    if (muscleStr.includes("full") || muscleStr.includes("fullbody")) {
+      return { sets: "3-4", reps: "8-12", rest: "1-2 min" };
+    }
+
+    // Default for any other strength exercise
+    return { sets: "3-4", reps: "8-12", rest: "1-2 min" };
+  };
+
   const handleFinishWorkout = async () => {
     // Check if all exercises are completed
     if (selectedWorkout) {
@@ -2227,62 +2303,67 @@ export default function CalendarScreen() {
                           </View>
                         </>
                       ) : (
-                        <>
-                          <View style={styles.exerciseDetail}>
-                            <Text
-                              style={[
-                                styles.detailLabel,
-                                { color: colors.text },
-                              ]}
-                            >
-                              Sets:
-                            </Text>
-                            <Text
-                              style={[
-                                styles.detailValue,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              3-4
-                            </Text>
-                          </View>
-                          <View style={styles.exerciseDetail}>
-                            <Text
-                              style={[
-                                styles.detailLabel,
-                                { color: colors.text },
-                              ]}
-                            >
-                              Reps:
-                            </Text>
-                            <Text
-                              style={[
-                                styles.detailValue,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              8-12
-                            </Text>
-                          </View>
-                          <View style={styles.exerciseDetail}>
-                            <Text
-                              style={[
-                                styles.detailLabel,
-                                { color: colors.text },
-                              ]}
-                            >
-                              Rest:
-                            </Text>
-                            <Text
-                              style={[
-                                styles.detailValue,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              2-3 min
-                            </Text>
-                          </View>
-                        </>
+                        (() => {
+                          const params = getExerciseParams(exercise);
+                          return (
+                            <>
+                              <View style={styles.exerciseDetail}>
+                                <Text
+                                  style={[
+                                    styles.detailLabel,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  Sets:
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.detailValue,
+                                    { color: colors.primary },
+                                  ]}
+                                >
+                                  {params.sets}
+                                </Text>
+                              </View>
+                              <View style={styles.exerciseDetail}>
+                                <Text
+                                  style={[
+                                    styles.detailLabel,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  Reps:
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.detailValue,
+                                    { color: colors.primary },
+                                  ]}
+                                >
+                                  {params.reps}
+                                </Text>
+                              </View>
+                              <View style={styles.exerciseDetail}>
+                                <Text
+                                  style={[
+                                    styles.detailLabel,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  Rest:
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.detailValue,
+                                    { color: colors.primary },
+                                  ]}
+                                >
+                                  {params.rest}
+                                </Text>
+                              </View>
+                            </>
+                          );
+                        })()
                       )}
                     </View>
 

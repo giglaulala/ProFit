@@ -1613,7 +1613,7 @@ export default function DashboardScreen() {
                 Hello {firstName || ""}!
               </Text>
               <TouchableOpacity
-                onPress={() => router.push("/_profile")}
+                onPress={() => router.push("/(tabs)/profile")}
                 activeOpacity={0.7}
               >
                 <View
