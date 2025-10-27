@@ -1678,29 +1678,71 @@ export default function CalendarScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: 0 }}
       >
-        {/* Title */}
-        <View
-          style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 }}
-        >
-          <Text
-            style={{
-              fontSize: 28,
-              fontWeight: "bold",
-              color: colors.text,
-              marginBottom: 8,
-            }}
-          >
-            Create Your Workout Calendar
+        {/* Workout Goals */}
+        <View style={styles.goalsContainer}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            PERSONALIZED PLAN
           </Text>
-          <Text
-            style={{
-              fontSize: 16,
-              color: colors.text,
-              opacity: 0.7,
-            }}
-          >
-            Build a personalized schedule that fits your goals and lifestyle
-          </Text>
+          <View style={styles.goalsGrid}>
+            {(showAllPlans
+              ? workoutGoals
+              : workoutGoals.filter((goal) => goal.id === selectedWorkoutGoal)
+            ).map((goal, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.goalCardContainer,
+                  selectedWorkoutGoal === goal.id && {
+                    borderWidth: 2,
+                    borderColor: colors.primary,
+                  },
+                ]}
+              >
+                <ImageBackground
+                  source={goal.image}
+                  style={styles.goalCard}
+                  imageStyle={styles.goalCardImage}
+                >
+                  <View
+                    style={[
+                      styles.goalCardOverlay,
+                      { backgroundColor: "rgba(18, 18, 18, 0.4)" },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.goalIconContainer,
+                        { backgroundColor: "rgba(226, 255, 0, 0.2)" },
+                      ]}
+                    >
+                      <Ionicons
+                        name={goal.icon as any}
+                        size={24}
+                        color={colors.primary}
+                      />
+                    </View>
+                    <Text style={[styles.goalTitle, { color: colors.text }]}>
+                      {goal.title.toUpperCase()}
+                    </Text>
+                    {selectedWorkoutGoal === goal.id && (
+                      <View
+                        style={[
+                          styles.selectedIndicator,
+                          { backgroundColor: colors.primary },
+                        ]}
+                      >
+                        <Ionicons
+                          name="checkmark"
+                          size={16}
+                          color={colors.black}
+                        />
+                      </View>
+                    )}
+                  </View>
+                </ImageBackground>
+              </View>
+            ))}
+          </View>
         </View>
 
         {/* Calendar */}
@@ -1971,98 +2013,6 @@ export default function CalendarScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-          )}
-        </View>
-
-        {/* Workout Goals */}
-        <View style={styles.goalsContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            PERSONALIZED PLAN
-          </Text>
-          <View style={styles.goalsGrid}>
-            {(showAllPlans
-              ? workoutGoals
-              : workoutGoals.filter((goal) => goal.id === selectedWorkoutGoal)
-            ).map((goal, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.goalCardContainer,
-                  selectedWorkoutGoal === goal.id && {
-                    borderWidth: 2,
-                    borderColor: colors.primary,
-                  },
-                ]}
-                activeOpacity={0.8}
-                onPress={() => handleWorkoutGoalPress(goal.id)}
-              >
-                <ImageBackground
-                  source={goal.image}
-                  style={styles.goalCard}
-                  imageStyle={styles.goalCardImage}
-                >
-                  <View
-                    style={[
-                      styles.goalCardOverlay,
-                      { backgroundColor: "rgba(18, 18, 18, 0.4)" },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.goalIconContainer,
-                        { backgroundColor: "rgba(226, 255, 0, 0.2)" },
-                      ]}
-                    >
-                      <Ionicons
-                        name={goal.icon as any}
-                        size={24}
-                        color={colors.primary}
-                      />
-                    </View>
-                    <Text style={[styles.goalTitle, { color: colors.text }]}>
-                      {goal.title.toUpperCase()}
-                    </Text>
-                    <Text
-                      style={[styles.goalDuration, { color: colors.primary }]}
-                    >
-                      5-8 MIN
-                    </Text>
-                    {selectedWorkoutGoal === goal.id && (
-                      <View
-                        style={[
-                          styles.selectedIndicator,
-                          { backgroundColor: colors.primary },
-                        ]}
-                      >
-                        <Ionicons
-                          name="checkmark"
-                          size={16}
-                          color={colors.black}
-                        />
-                      </View>
-                    )}
-                  </View>
-                </ImageBackground>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {!showAllPlans && (
-            <TouchableOpacity
-              style={[
-                styles.changePlanButton,
-                { backgroundColor: colors.lightGray },
-              ]}
-              onPress={() => setShowAllPlans(true)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="swap-horizontal" size={20} color={colors.text} />
-              <Text
-                style={[styles.changePlanButtonText, { color: colors.text }]}
-              >
-                Change the plan
-              </Text>
-            </TouchableOpacity>
           )}
         </View>
       </ScrollView>

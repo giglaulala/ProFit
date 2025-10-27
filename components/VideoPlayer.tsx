@@ -36,20 +36,19 @@ export default function VideoPlayer({
   const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  const isYouTubeUrl = (url: string): boolean => {
+    return url.includes("youtube.com") || url.includes("youtu.be");
+  };
+
   const handlePlayVideo = async () => {
     if (!video) return;
 
-    if (video.type === "local" && video.localPath) {
-      // For local videos, start playing
-      if (videoRef.current) {
-        if (isPlaying) {
-          videoRef.current.pauseAsync();
-        } else {
-          videoRef.current.playAsync();
-        }
-      }
-    } else if (video.type === "remote" && video.remoteUrl) {
-      // For remote videos, open in YouTube app or browser
+    // Check if it's a YouTube URL - these can't be played inline
+    if (
+      video.type === "remote" &&
+      video.remoteUrl &&
+      isYouTubeUrl(video.remoteUrl)
+    ) {
       try {
         const canOpen = await Linking.canOpenURL(video.remoteUrl);
         if (canOpen) {
@@ -65,6 +64,22 @@ export default function VideoPlayer({
         Alert.alert("Error", "Failed to open video. Please try again.", [
           { text: "OK" },
         ]);
+      }
+      return;
+    }
+
+    // For local videos and non-YouTube remote videos, use the video player
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pauseAsync();
+      } else {
+        try {
+          await videoRef.current.playAsync();
+        } catch (error) {
+          Alert.alert("Error", "Failed to play video. Please try again.", [
+            { text: "OK" },
+          ]);
+        }
       }
     }
   };
@@ -128,14 +143,38 @@ export default function VideoPlayer({
                 shadowOpacity: 0.3,
                 shadowRadius: 8,
                 elevation: 8,
+                borderWidth: 4,
+                borderColor: colors.primary + "40",
               },
             ]}
           >
+            {/* Inner frame border */}
+            <View
+              style={[
+                styles.innerFrame,
+                {
+                  borderColor: colors.primary,
+                },
+              ]}
+            />
             {video.type === "local" && video.localPath ? (
               <Video
                 ref={videoRef}
                 style={styles.video}
                 source={video.localPath as any}
+                useNativeControls
+                resizeMode={ResizeMode.CONTAIN}
+                isLooping={false}
+                onPlaybackStatusUpdate={handleVideoStatusUpdate}
+                shouldPlay={false}
+              />
+            ) : video.type === "remote" &&
+              video.remoteUrl &&
+              !isYouTubeUrl(video.remoteUrl) ? (
+              <Video
+                ref={videoRef}
+                style={styles.video}
+                source={{ uri: video.remoteUrl }}
                 useNativeControls
                 resizeMode={ResizeMode.CONTAIN}
                 isLooping={false}
@@ -222,33 +261,34 @@ export default function VideoPlayer({
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
-            {video.type === "local" && video.localPath ? (
-              <TouchableOpacity
-                style={[styles.playButton, { backgroundColor: colors.primary }]}
-                onPress={handlePlayVideo}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={isPlaying ? "pause" : "play"}
-                  size={20}
-                  color={colors.black}
-                />
-                <Text style={[styles.playButtonText, { color: colors.black }]}>
-                  {isPlaying ? "Pause Video" : "Play Video"}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.playButton, { backgroundColor: colors.primary }]}
-                onPress={handlePlayVideo}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="open-outline" size={20} color={colors.black} />
-                <Text style={[styles.playButtonText, { color: colors.black }]}>
-                  Open Video
-                </Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[styles.playButton, { backgroundColor: colors.primary }]}
+              onPress={handlePlayVideo}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={
+                  video.type === "remote" &&
+                  video.remoteUrl &&
+                  isYouTubeUrl(video.remoteUrl)
+                    ? "open-outline"
+                    : isPlaying
+                    ? "pause"
+                    : "play"
+                }
+                size={20}
+                color={colors.black}
+              />
+              <Text style={[styles.playButtonText, { color: colors.black }]}>
+                {video.type === "remote" &&
+                video.remoteUrl &&
+                isYouTubeUrl(video.remoteUrl)
+                  ? "Open in YouTube"
+                  : isPlaying
+                  ? "Pause Video"
+                  : "Play Video"}
+              </Text>
+            </TouchableOpacity>
 
             {video.type === "local" && (
               <TouchableOpacity
@@ -280,7 +320,7 @@ export default function VideoPlayer({
             >
               {video.type === "local"
                 ? "This video is stored locally on your device and can be played offline."
-                : "This video requires an internet connection to play."}
+                : "Streaming video requires an internet connection."}
             </Text>
           </View>
         </View>
@@ -324,8 +364,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
+    position: "relative",
+  },
+  innerFrame: {
+    position: "absolute",
+    top: 2,
+    left: 2,
+    right: 2,
+    bottom: 2,
+    borderRadius: 8,
     borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    zIndex: 1,
+    pointerEvents: "none",
   },
   localVideoContainer: {
     alignItems: "center",
@@ -336,6 +386,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
+    zIndex: 0,
   },
   videoIconContainer: {
     marginBottom: 15,
@@ -443,5 +494,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 10,
+    zIndex: 0,
   },
 });
