@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
   Image,
@@ -10,14 +11,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-import Calendar from "../../components/Calendar";
 import VideoPlayer from "../../components/VideoPlayer";
 import Colors from "../../constants/Colors";
 import {
@@ -1552,6 +1550,41 @@ export default function DashboardScreen() {
     }
   };
 
+  // Reload progress data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const loadProgress = async () => {
+        try {
+          // Reload calendar data first to update selectedDays and freeDays
+          const calStr = await AsyncStorage.getItem("userCalendar");
+          if (calStr) {
+            const calendar = JSON.parse(calStr);
+            setUserCalendar(calendar);
+            // Update selectedDays from the loaded calendar
+            if (calendar.selectedDays) {
+              setSelectedDays(calendar.selectedDays);
+              // Update freeDays to match the number of selected days
+              setFreeDays(calendar.selectedDays.length);
+            }
+          }
+
+          const { data: userInfo } = await supabase.auth.getUser();
+          const userId = userInfo.user?.id;
+          if (userId) {
+            await Promise.all([
+              loadMonthlyGoals(),
+              loadMonthlyProgress(),
+              loadWeeklyProgress(),
+            ]);
+          }
+        } catch (e) {
+          console.error("Error loading progress on focus:", e);
+        }
+      };
+      loadProgress();
+    }, [])
+  );
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -1655,280 +1688,6 @@ export default function DashboardScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Calendar */}
-        <View style={styles.calendarContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Workout Calendar
-          </Text>
-          <Calendar
-            workoutDays={uiCalendarDays}
-            onDatePress={handleCalendarDatePress}
-          />
-          {/* Find/Create controls */}
-          {!userCalendar && (
-            <View style={{ marginTop: 16, gap: 12 }}>
-              <View
-                style={[
-                  styles.paramsCard,
-                  { backgroundColor: colors.darkGray },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: colors.text,
-                    fontWeight: "600",
-                    marginBottom: 8,
-                  }}
-                >
-                  {t("dashboard.findCalendar")}
-                </Text>
-                <View
-                  style={{ flexDirection: "row", gap: 8, alignItems: "center" }}
-                >
-                  <TextInput
-                    style={{
-                      flex: 1,
-                      padding: 10,
-                      borderRadius: 8,
-                      backgroundColor: colors.lightGray,
-                      color: colors.text,
-                    }}
-                    placeholder="ProFit-XXX"
-                    placeholderTextColor={colors.text}
-                    value={joinCode}
-                    onChangeText={setJoinCode}
-                    autoCapitalize="characters"
-                  />
-                  <TouchableOpacity
-                    onPress={handleJoinCalendar}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 10,
-                      borderRadius: 8,
-                      backgroundColor: colors.primary,
-                    }}
-                  >
-                    <Text style={{ color: colors.black, fontWeight: "600" }}>
-                      {t("dashboard.join")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View
-                style={[
-                  styles.paramsCard,
-                  { backgroundColor: colors.darkGray },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: colors.text,
-                    fontWeight: "600",
-                    marginBottom: 8,
-                  }}
-                >
-                  {t("dashboard.createCalendar")}
-                </Text>
-                <Text style={{ color: colors.text, marginBottom: 6 }}>
-                  {t("dashboard.goal")}
-                </Text>
-                <View
-                  style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
-                >
-                  {[
-                    ["weight_loss", t("dashboard.weightLoss")],
-                    ["muscle_gain", t("dashboard.muscleGain")],
-                    ["maintenance", t("dashboard.maintain")],
-                    ["strength", t("dashboard.strength")],
-                  ].map(([val, label]) => (
-                    <TouchableOpacity
-                      key={val}
-                      onPress={() => setGoal(val as any)}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        borderRadius: 999,
-                        backgroundColor:
-                          goal === val ? colors.primary : colors.lightGray,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: goal === val ? colors.black : colors.text,
-                        }}
-                      >
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={{ color: colors.text, marginVertical: 6 }}>
-                  {t("dashboard.level")}
-                </Text>
-                <View
-                  style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
-                >
-                  {[
-                    ["amateur", t("dashboard.amateur")],
-                    ["beginner", t("dashboard.beginner")],
-                    ["medium", t("dashboard.medium")],
-                    ["experienced", t("dashboard.experienced")],
-                    ["professional", t("dashboard.professional")],
-                  ].map(([val, label]) => (
-                    <TouchableOpacity
-                      key={val}
-                      onPress={() => setLevel(val as any)}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        borderRadius: 999,
-                        backgroundColor:
-                          level === val ? colors.primary : colors.lightGray,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: level === val ? colors.black : colors.text,
-                        }}
-                      >
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={{ color: colors.text, marginVertical: 6 }}>
-                  {t("dashboard.days")}
-                </Text>
-                <View
-                  style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
-                >
-                  {[
-                    ["Mon", t("calendar.monday")],
-                    ["Tue", t("calendar.tuesday")],
-                    ["Wed", t("calendar.wednesday")],
-                    ["Thu", t("calendar.thursday")],
-                    ["Fri", t("calendar.friday")],
-                    ["Sat", t("calendar.saturday")],
-                    ["Sun", t("calendar.sunday")],
-                  ].map(([val, label]) => (
-                    <TouchableOpacity
-                      key={val}
-                      onPress={() => toggleDay(val)}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        borderRadius: 999,
-                        backgroundColor: selectedDays.includes(val)
-                          ? colors.primary
-                          : colors.lightGray,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: selectedDays.includes(val)
-                            ? colors.black
-                            : colors.text,
-                        }}
-                      >
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <TouchableOpacity
-                  onPress={handleCreateCalendar}
-                  style={{
-                    marginTop: 10,
-                    alignSelf: "flex-start",
-                    paddingHorizontal: 14,
-                    paddingVertical: 10,
-                    borderRadius: 10,
-                    backgroundColor: colors.primary,
-                  }}
-                >
-                  <Text style={{ color: colors.black, fontWeight: "600" }}>
-                    {t("dashboard.generateCalendar")}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {userCalendar && (
-            <View style={{ marginTop: 12, flexDirection: "row", gap: 8 }}>
-              <TouchableOpacity
-                onPress={() => alert(`Share: ${userCalendar.shareCode}`)}
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  borderRadius: 8,
-                  backgroundColor: colors.darkGray,
-                }}
-              >
-                <Text style={{ color: colors.text }}>
-                  {t("dashboard.share")}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={async () => {
-                  try {
-                    // Clear local calendar data
-                    await AsyncStorage.removeItem("userCalendar");
-                    setUserCalendar(null);
-                    // Reset selectedDays when clearing calendar
-                    setSelectedDays([]);
-
-                    // Clear monthly goals and progress data from Supabase
-                    const { data: userInfo } = await supabase.auth.getUser();
-                    const userId = userInfo.user?.id;
-                    if (userId) {
-                      // Use the new clear_all_progress function for thorough cleanup
-                      await supabase.rpc("clear_all_progress", {
-                        p_user_id: userId,
-                      });
-
-                      // Reset progress state immediately
-                      setMonthlyProgress({
-                        workoutsCompleted: 0,
-                        caloriesBurned: 0,
-                        minutesExercised: 0,
-                      });
-                      setWeeklyProgress({
-                        workoutsCompleted: 0,
-                        caloriesBurned: 0,
-                        minutesExercised: 0,
-                      });
-
-                      // Reload goals and progress to ensure clean state
-                      await Promise.all([
-                        loadMonthlyGoals(),
-                        loadMonthlyProgress(),
-                        loadWeeklyProgress(),
-                      ]);
-                    }
-                  } catch (error) {
-                    console.error("Error clearing calendar data:", error);
-                  }
-                }}
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  borderRadius: 8,
-                  backgroundColor: colors.error,
-                }}
-              >
-                <Text style={{ color: colors.background }}>
-                  {t("dashboard.clear")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
 
         {/* Progress - This Week */}
@@ -2175,98 +1934,6 @@ export default function DashboardScreen() {
               </View>
             ))}
           </View>
-        </View>
-
-        {/* Workout Goals */}
-        <View style={styles.goalsContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            PERSONALIZED PLAN
-          </Text>
-          <View style={styles.goalsGrid}>
-            {(showAllPlans
-              ? workoutGoals
-              : workoutGoals.filter((goal) => goal.id === selectedWorkoutGoal)
-            ).map((goal, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.goalCardContainer,
-                  selectedWorkoutGoal === goal.id && {
-                    borderWidth: 2,
-                    borderColor: colors.primary,
-                  },
-                ]}
-                activeOpacity={0.8}
-                onPress={() => handleWorkoutGoalPress(goal.id)}
-              >
-                <ImageBackground
-                  source={goal.image}
-                  style={styles.goalCard}
-                  imageStyle={styles.goalCardImage}
-                >
-                  <View
-                    style={[
-                      styles.goalCardOverlay,
-                      { backgroundColor: "rgba(18, 18, 18, 0.4)" },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.goalIconContainer,
-                        { backgroundColor: "rgba(226, 255, 0, 0.2)" },
-                      ]}
-                    >
-                      <Ionicons
-                        name={goal.icon as any}
-                        size={24}
-                        color={colors.primary}
-                      />
-                    </View>
-                    <Text style={[styles.goalTitle, { color: colors.text }]}>
-                      {goal.title.toUpperCase()}
-                    </Text>
-                    <Text
-                      style={[styles.goalDuration, { color: colors.primary }]}
-                    >
-                      5-8 MIN
-                    </Text>
-                    {selectedWorkoutGoal === goal.id && (
-                      <View
-                        style={[
-                          styles.selectedIndicator,
-                          { backgroundColor: colors.primary },
-                        ]}
-                      >
-                        <Ionicons
-                          name="checkmark"
-                          size={16}
-                          color={colors.black}
-                        />
-                      </View>
-                    )}
-                  </View>
-                </ImageBackground>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {!showAllPlans && (
-            <TouchableOpacity
-              style={[
-                styles.changePlanButton,
-                { backgroundColor: colors.lightGray },
-              ]}
-              onPress={() => setShowAllPlans(true)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="swap-horizontal" size={20} color={colors.text} />
-              <Text
-                style={[styles.changePlanButtonText, { color: colors.text }]}
-              >
-                Change the plan
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Weekly Stats */}

@@ -593,6 +593,10 @@ export default function CalendarScreen() {
           if (calendar.selectedDays) {
             setSelectedDays(calendar.selectedDays);
           }
+          // Update selectedWorkoutGoal from the loaded calendar
+          if (calendar.goal) {
+            setSelectedWorkoutGoal(calendar.goal);
+          }
         }
         if (mapStr) setCalendarMap(JSON.parse(mapStr));
         // Load trainee settings from Supabase or fallback to AsyncStorage setup
@@ -1343,6 +1347,9 @@ export default function CalendarScreen() {
       await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
       setUserCalendar(cal);
 
+      // Update selectedWorkoutGoal based on the created calendar
+      setSelectedWorkoutGoal(cal.goal);
+
       // Update freeDays to match the number of selected days
       const newFreeDays = selectedDays.length;
       setFreeDays(newFreeDays);
@@ -1560,8 +1567,33 @@ export default function CalendarScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: 0 }}
       >
+        {/* Title */}
+        <View
+          style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 }}
+        >
+          <Text
+            style={{
+              fontSize: 28,
+              fontWeight: "bold",
+              color: colors.text,
+              marginBottom: 8,
+            }}
+          >
+            Create Your Workout Calendar
+          </Text>
+          <Text
+            style={{
+              fontSize: 16,
+              color: colors.text,
+              opacity: 0.7,
+            }}
+          >
+            Build a personalized schedule that fits your goals and lifestyle
+          </Text>
+        </View>
+
         {/* Calendar */}
-        <View style={[styles.calendarContainer, { marginTop: 20 }]}>
+        <View style={[styles.calendarContainer, { marginTop: 10 }]}>
           <Calendar
             workoutDays={uiCalendarDays}
             onDatePress={handleCalendarDatePress}
