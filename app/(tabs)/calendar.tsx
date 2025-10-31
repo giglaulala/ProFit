@@ -134,7 +134,7 @@ export default function CalendarScreen() {
       const onlyCurrentId = !myIds.length && userCalendar?.id ? userCalendar.id : null;
       const { data, error } = await supabase
         .from("calendars")
-        .select("id, title, plan, owner, created_at")
+        .select("id, title, plan, owner, goal, level, created_at")
         .eq("owner", owner)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -149,6 +149,8 @@ export default function CalendarScreen() {
           title: c.title,
           plan: c.plan,
           owner: c.owner,
+          goal: c.goal,
+          level: c.level,
           shareCode: c.id,
           created_at: c.created_at,
         }));
@@ -1514,7 +1516,7 @@ export default function CalendarScreen() {
       const currentUserId = auth.user?.id;
       const { data, error } = await supabase
         .from("calendars")
-        .select("id, title, plan, owner")
+        .select("id, title, plan, owner, goal, level")
         .eq("id", code)
         .maybeSingle();
       if (error) throw error;
@@ -1529,9 +1531,13 @@ export default function CalendarScreen() {
         plan: isOwner ? data.plan : {},
         shareCode: data.id,
         title: data.title,
+        goal: data.goal,
+        level: data.level,
       };
       await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
       setUserCalendar(cal);
+      if (cal.goal) setSelectedWorkoutGoal(cal.goal);
+      if (cal.level) setLevel(cal.level);
       // reload list
       await loadUserCalendars();
     } catch (e: any) {
@@ -1556,6 +1562,8 @@ export default function CalendarScreen() {
         owner,
         title: selectedGoalTitle,
         plan: cal.plan,
+        goal: cal.goal,
+        level: cal.level,
       });
       if (error && !String(error.message || "").includes("duplicate")) {
         throw error;
@@ -1839,6 +1847,8 @@ export default function CalendarScreen() {
                   onPress={async () => {
                     await AsyncStorage.setItem("userCalendar", JSON.stringify(c));
                     setUserCalendar(c);
+                    if (c.goal) setSelectedWorkoutGoal(c.goal);
+                    if (c.level) setLevel(c.level);
                     setShowPlansMenu(false);
                   }}
                   activeOpacity={0.8}

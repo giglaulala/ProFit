@@ -155,6 +155,8 @@ export default function CreateCalendarScreen() {
         owner,
         title: finalTitle,
         plan: cal.plan,
+        goal: cal.goal,
+        level: cal.level,
       });
       if (error && !String(error.message || "").includes("duplicate")) throw error;
 
