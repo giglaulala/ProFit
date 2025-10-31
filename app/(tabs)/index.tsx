@@ -598,6 +598,25 @@ export default function DashboardScreen() {
         const { data: userInfo } = await supabase.auth.getUser();
         const userId = userInfo.user?.id;
         if (userId) {
+          // If stored calendar belongs to a different user, sanitize it for this user
+          if (calStr) {
+            try {
+              const cal = JSON.parse(calStr);
+              if (cal?.owner && cal.owner !== userId) {
+                const sanitized = {
+                  id: cal.id,
+                  plan: {},
+                  shareCode: cal.shareCode,
+                  owner: cal.owner,
+                };
+                await AsyncStorage.setItem(
+                  "userCalendar",
+                  JSON.stringify(sanitized)
+                );
+                setUserCalendar(sanitized);
+              }
+            } catch {}
+          }
           const { data: settings } = await supabase
             .from("trainee_settings")
             .select("goal, weight, height, free_days")
@@ -1313,6 +1332,7 @@ export default function DashboardScreen() {
         id: data.id,
         plan: isOwner ? data.plan : {},
         shareCode: data.id,
+        owner: data.owner,
       };
       await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
       setUserCalendar(cal);
@@ -1339,8 +1359,9 @@ export default function DashboardScreen() {
       if (error && !String(error.message || "").includes("duplicate")) {
         throw error;
       }
-      await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
-      setUserCalendar(cal);
+      const calWithOwner = { ...cal, owner } as any;
+      await AsyncStorage.setItem("userCalendar", JSON.stringify(calWithOwner));
+      setUserCalendar(calWithOwner);
 
       // Update freeDays to match the number of selected days
       const newFreeDays = selectedDays.length;
@@ -1555,21 +1576,34 @@ export default function DashboardScreen() {
     useCallback(() => {
       const loadProgress = async () => {
         try {
-          // Reload calendar data first to update selectedDays and freeDays
+          const { data: userInfo } = await supabase.auth.getUser();
+          const userId = userInfo.user?.id;
+
+          // Reload calendar data first to update selectedDays and freeDays, scoped by user
           const calStr = await AsyncStorage.getItem("userCalendar");
           if (calStr) {
             const calendar = JSON.parse(calStr);
-            setUserCalendar(calendar);
-            // Update selectedDays from the loaded calendar
-            if (calendar.selectedDays) {
-              setSelectedDays(calendar.selectedDays);
-              // Update freeDays to match the number of selected days
-              setFreeDays(calendar.selectedDays.length);
+            if (calendar?.owner && userId && calendar.owner !== userId) {
+              const sanitized = {
+                id: calendar.id,
+                plan: {},
+                shareCode: calendar.shareCode,
+                owner: calendar.owner,
+              };
+              await AsyncStorage.setItem(
+                "userCalendar",
+                JSON.stringify(sanitized)
+              );
+              setUserCalendar(sanitized);
+            } else {
+              setUserCalendar(calendar);
+              if (calendar.selectedDays) {
+                setSelectedDays(calendar.selectedDays);
+                setFreeDays(calendar.selectedDays.length);
+              }
             }
           }
 
-          const { data: userInfo } = await supabase.auth.getUser();
-          const userId = userInfo.user?.id;
           if (userId) {
             await Promise.all([
               loadMonthlyGoals(),
@@ -1717,7 +1751,10 @@ export default function DashboardScreen() {
                       style={[
                         styles.progressBar,
                         {
-                          height: (stat.value / stat.target) * 100,
+                          height: Math.min(
+                            (stat.value / stat.target) * 100,
+                            100
+                          ),
                           backgroundColor:
                             stat.value >= stat.target
                               ? colors.primary
@@ -1786,12 +1823,6 @@ export default function DashboardScreen() {
               current: monthlyProgress.workoutsCompleted,
               target: monthlyGoals.workoutGoal,
               icon: "fitness",
-            },
-            {
-              title: t("dashboard.calories"),
-              current: monthlyProgress.caloriesBurned,
-              target: monthlyGoals.calorieGoal,
-              icon: "flame",
             },
             {
               title: t("dashboard.minutes"),
@@ -1878,12 +1909,6 @@ export default function DashboardScreen() {
                 unlocked: true,
               },
               {
-                title: "100 Calories",
-                icon: "flame",
-                color: colors.accent,
-                unlocked: true,
-              },
-              {
                 title: "30 Day Challenge",
                 icon: "medal",
                 color: colors.darkGreen,
@@ -1936,45 +1961,7 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Weekly Stats */}
-        <View style={styles.weeklyStatsContainer}>
-          <View style={styles.weeklyStatsHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              CALORIES
-            </Text>
-            <View style={styles.weeklyAverage}>
-              <Text style={[styles.weeklyAverageLabel, { color: colors.text }]}>
-                WEEKLY AVERAGE
-              </Text>
-              <Text
-                style={[styles.weeklyAverageValue, { color: colors.primary }]}
-              >
-                102 CAL
-              </Text>
-            </View>
-          </View>
-          <View style={styles.weeklyGraph}>
-            {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map(
-              (day, index) => (
-                <View key={day} style={styles.graphColumn}>
-                  <View
-                    style={[
-                      styles.graphBar,
-                      {
-                        height: index === 2 ? 100 : 40,
-                        backgroundColor:
-                          index === 2 ? colors.primary : colors.darkGray,
-                      },
-                    ]}
-                  />
-                  <Text style={[styles.graphLabel, { color: colors.text }]}>
-                    {day}
-                  </Text>
-                </View>
-              )
-            )}
-          </View>
-        </View>
+        {/* Weekly Stats removed (calories) */}
       </ScrollView>
 
       {/* Workout Details Modal */}
@@ -2404,14 +2391,10 @@ export default function DashboardScreen() {
               <View
                 style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
               >
-                <Ionicons name="flame" size={18} color={colors.accent} />
-                <Text style={{ color: colors.text }}>
-                  Total calories: {summaryData.totalCalories}
-                </Text>
+                {/* Calories removed from summary */}
               </View>
 
-              {(summaryData.selectedMinutes ||
-                summaryData.selectedCalories) && (
+              {summaryData.selectedMinutes && (
                 <View style={{ marginTop: 10 }}>
                   <Text
                     style={[
@@ -2436,19 +2419,6 @@ export default function DashboardScreen() {
                     />
                     <Text style={{ color: colors.text }}>
                       Minutes: {summaryData.selectedMinutes ?? 0}
-                    </Text>
-                  </View>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 8,
-                      marginTop: 4,
-                    }}
-                  >
-                    <Ionicons name="flame" size={16} color={colors.accent} />
-                    <Text style={{ color: colors.text }}>
-                      Calories: {summaryData.selectedCalories ?? 0}
                     </Text>
                   </View>
                 </View>
@@ -2977,6 +2947,7 @@ const styles = StyleSheet.create({
   progressChartCard: {
     padding: 20,
     borderRadius: 12,
+    overflow: "hidden",
   },
   progressChartBars: {
     flexDirection: "row",
