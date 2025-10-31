@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import {
   Dimensions,
   Image,
@@ -90,6 +92,103 @@ export default function CalendarScreen() {
 
   // Custom Alert States
   const [showCustomAlert, setShowCustomAlert] = useState(false);
+  const [showPlansMenu, setShowPlansMenu] = useState(false);
+  const [calendars, setCalendars] = useState<any[]>([]);
+  const scrollRef = useRef<ScrollView>(null);
+  const createSectionYRef = useRef(0);
+  const router = useRouter();
+  // Local tracking of calendars created via this app instance
+  const MY_CAL_IDS_KEY = "myCalendars";
+  const getMyCalendarIds = async (): Promise<string[]> => {
+    try {
+      const s = await AsyncStorage.getItem(MY_CAL_IDS_KEY);
+      return s ? (JSON.parse(s) as string[]) : [];
+    } catch {
+      return [];
+    }
+  };
+  const addMyCalendarId = async (id: string) => {
+    const ids = await getMyCalendarIds();
+    if (!ids.includes(id)) {
+      const next = [...ids, id];
+      await AsyncStorage.setItem(MY_CAL_IDS_KEY, JSON.stringify(next));
+    }
+  };
+  const removeMyCalendarId = async (id: string) => {
+    const ids = await getMyCalendarIds();
+    const next = ids.filter((x) => x !== id);
+    await AsyncStorage.setItem(MY_CAL_IDS_KEY, JSON.stringify(next));
+  };
+
+  const loadUserCalendars = async () => {
+    try {
+      const { data: userInfo } = await supabase.auth.getUser();
+      const owner = userInfo.user?.id ?? null;
+      if (!owner) {
+        setCalendars([]);
+        return;
+      }
+      const myIds = await getMyCalendarIds();
+      const allowedIds = new Set(myIds);
+      // If nothing tracked locally yet, only allow the current active calendar (if any)
+      const onlyCurrentId = !myIds.length && userCalendar?.id ? userCalendar.id : null;
+      const { data, error } = await supabase
+        .from("calendars")
+        .select("id, title, plan, owner, created_at")
+        .eq("owner", owner)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      let raw = (data || []).filter((c) => c && c.owner === owner);
+      raw = raw.filter((c) => {
+        if (allowedIds.size > 0) return allowedIds.has(c.id);
+        if (onlyCurrentId) return c.id === onlyCurrentId;
+        return false;
+      })
+        .map((c) => ({
+          id: c.id,
+          title: c.title,
+          plan: c.plan,
+          owner: c.owner,
+          shareCode: c.id,
+          created_at: c.created_at,
+        }));
+      const seenIds = new Set<string>();
+      const deduped: any[] = [];
+      for (const c of raw) {
+        if (seenIds.has(c.id)) continue;
+        seenIds.add(c.id);
+        deduped.push(c);
+      }
+      if (deduped.length === 0 && userCalendar?.id) {
+        setCalendars([
+          {
+            id: userCalendar.id,
+            title: userCalendar.title || userCalendar.id,
+            shareCode: userCalendar.id,
+            owner,
+            plan: {},
+            created_at: new Date().toISOString(),
+          },
+        ]);
+      } else {
+        setCalendars(deduped);
+      }
+    } catch (e) {
+      // noop
+    }
+  };
+
+  useEffect(() => {
+    loadUserCalendars();
+  }, []);
+
+  // Refresh calendars list when returning to this tab
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserCalendars();
+      return () => {};
+    }, [])
+  );
   const [alertData, setAlertData] = useState<{
     title: string;
     message: string;
@@ -1429,9 +1528,12 @@ export default function CalendarScreen() {
         id: data.id,
         plan: isOwner ? data.plan : {},
         shareCode: data.id,
+        title: data.title,
       };
       await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
       setUserCalendar(cal);
+      // reload list
+      await loadUserCalendars();
     } catch (e: any) {
       alert(e.message || "Failed to load calendar");
     }
@@ -1443,20 +1545,27 @@ export default function CalendarScreen() {
       return;
     }
     const cal = generateCalendar();
+    const selectedGoalTitle =
+      (workoutGoals.find((g) => g.id === goal)?.title as string) ||
+      "Personalized Plan";
     try {
       const { data: userInfo } = await supabase.auth.getUser();
       const owner = userInfo.user?.id ?? null;
       const { error } = await supabase.from("calendars").insert({
         id: cal.id,
         owner,
-        title: `${goal} plan`,
+        title: selectedGoalTitle,
         plan: cal.plan,
       });
       if (error && !String(error.message || "").includes("duplicate")) {
         throw error;
       }
-      await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
-      setUserCalendar(cal);
+      const calWithTitle = { ...cal, title: selectedGoalTitle };
+      await AsyncStorage.setItem("userCalendar", JSON.stringify(calWithTitle));
+      setUserCalendar(calWithTitle);
+      await addMyCalendarId(calWithTitle.id);
+      // Refresh calendars list and set newly created as active in memory list
+      await loadUserCalendars();
 
       // Update selectedWorkoutGoal based on the created calendar
       setSelectedWorkoutGoal(cal.goal);
@@ -1675,74 +1784,191 @@ export default function CalendarScreen() {
       edges={["top", "bottom", "right", "left"]}
     >
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: 0 }}
       >
         {/* Workout Goals */}
         <View style={styles.goalsContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            PERSONALIZED PLAN
-          </Text>
-          <View style={styles.goalsGrid}>
-            {(showAllPlans
-              ? workoutGoals
-              : workoutGoals.filter((goal) => goal.id === selectedWorkoutGoal)
-            ).map((goal, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.goalCardContainer,
-                  selectedWorkoutGoal === goal.id && {
-                    borderWidth: 2,
-                    borderColor: colors.primary,
-                  },
-                ]}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}> 
+              PERSONALIZED PLAN
+            </Text>
+            {(!!userCalendar || calendars.length > 0) && (
+              <TouchableOpacity
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => setShowPlansMenu((v) => !v)}
+                activeOpacity={0.7}
+                style={{ padding: 6, borderRadius: 8 }}
               >
-                <ImageBackground
-                  source={goal.image}
-                  style={styles.goalCard}
-                  imageStyle={styles.goalCardImage}
+                <Ionicons
+                  name={showPlansMenu ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+          {showPlansMenu && (
+            <View
+              style={{
+                marginTop: 8,
+                borderRadius: 12,
+                backgroundColor: colors.darkGray,
+                overflow: "hidden",
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderBottomWidth: 1,
+                  borderBottomColor: "rgba(255,255,255,0.08)",
+                }}
+              >
+                <Text style={{ color: colors.text, fontWeight: "600" }}>
+                  Your calendars
+                </Text>
+              </View>
+              {calendars.map((c) => (
+                <TouchableOpacity
+                  key={c.id}
+                  onPress={async () => {
+                    await AsyncStorage.setItem("userCalendar", JSON.stringify(c));
+                    setUserCalendar(c);
+                    setShowPlansMenu(false);
+                  }}
+                  activeOpacity={0.8}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 12,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
                 >
-                  <View
-                    style={[
-                      styles.goalCardOverlay,
-                      { backgroundColor: "rgba(18, 18, 18, 0.4)" },
-                    ]}
+                  <Text style={{ color: colors.text }}>{c.title || c.id}</Text>
+                  {userCalendar?.id === c.id && (
+                    <Ionicons name="checkmark" size={16} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                onPress={() => {
+                  setShowPlansMenu(false);
+                  router.push("/create-calendar");
+                }}
+                activeOpacity={0.8}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 12,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <Ionicons name="add-circle" size={18} color={colors.primary} />
+                <Text style={{ color: colors.text, fontWeight: "600" }}>
+                  Create new calendar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {!userCalendar ? (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                if (scrollRef.current) {
+                  scrollRef.current.scrollToEnd({ animated: true });
+                }
+              }}
+              style={[
+                styles.goalCardContainer,
+                {
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: colors.primary,
+                },
+              ]}
+            >
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  backgroundColor: colors.black,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="add" size={32} color={colors.primary} />
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.goalsGrid}>
+              {(showAllPlans
+                ? workoutGoals
+                : workoutGoals.filter((goal) => goal.id === selectedWorkoutGoal)
+              ).map((goal, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.goalCardContainer,
+                    selectedWorkoutGoal === goal.id && {
+                      borderWidth: 2,
+                      borderColor: colors.primary,
+                    },
+                  ]}
+                >
+                  <ImageBackground
+                    source={goal.image}
+                    style={styles.goalCard}
+                    imageStyle={styles.goalCardImage}
                   >
                     <View
                       style={[
-                        styles.goalIconContainer,
-                        { backgroundColor: "rgba(226, 255, 0, 0.2)" },
+                        styles.goalCardOverlay,
+                        { backgroundColor: "rgba(18, 18, 18, 0.4)" },
                       ]}
                     >
-                      <Ionicons
-                        name={goal.icon as any}
-                        size={24}
-                        color={colors.primary}
-                      />
-                    </View>
-                    <Text style={[styles.goalTitle, { color: colors.text }]}>
-                      {goal.title.toUpperCase()}
-                    </Text>
-                    {selectedWorkoutGoal === goal.id && (
                       <View
                         style={[
-                          styles.selectedIndicator,
-                          { backgroundColor: colors.primary },
+                          styles.goalIconContainer,
+                          { backgroundColor: "rgba(226, 255, 0, 0.2)" },
                         ]}
                       >
                         <Ionicons
-                          name="checkmark"
-                          size={16}
-                          color={colors.black}
+                          name={goal.icon as any}
+                          size={24}
+                          color={colors.primary}
                         />
                       </View>
-                    )}
-                  </View>
-                </ImageBackground>
-              </View>
-            ))}
-          </View>
+                      <Text style={[styles.goalTitle, { color: colors.text }]}>
+                        {goal.title.toUpperCase()}
+                      </Text>
+                      {selectedWorkoutGoal === goal.id && (
+                        <View
+                          style={[
+                            styles.selectedIndicator,
+                            { backgroundColor: colors.primary },
+                          ]}
+                        >
+                          <Ionicons
+                            name="checkmark"
+                            size={16}
+                            color={colors.black}
+                          />
+                        </View>
+                      )}
+                    </View>
+                  </ImageBackground>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Calendar */}
@@ -1755,6 +1981,9 @@ export default function CalendarScreen() {
           {!userCalendar && (
             <View style={{ marginTop: 16, gap: 12 }}>
               <View
+                onLayout={(e) => {
+                  createSectionYRef.current = e.nativeEvent.layout.y;
+                }}
                 style={[
                   styles.paramsCard,
                   { backgroundColor: colors.darkGray },
@@ -1963,15 +2192,29 @@ export default function CalendarScreen() {
               <TouchableOpacity
                 onPress={async () => {
                   try {
+                    const current = userCalendar;
+                    // Delete active calendar from Supabase
+                    const { data: userInfo } = await supabase.auth.getUser();
+                    const userId = userInfo.user?.id;
+                    if (userId && current?.id) {
+                      await supabase
+                        .from("calendars")
+                        .delete()
+                        .eq("id", current.id)
+                        .eq("owner", userId);
+                    }
+
                     // Clear local calendar data
                     await AsyncStorage.removeItem("userCalendar");
                     setUserCalendar(null);
+                    // Remove from local list
+                    if (current?.id) {
+                      await removeMyCalendarId(current.id);
+                    }
                     // Reset selectedDays when clearing calendar
                     setSelectedDays([]);
 
                     // Clear monthly goals and progress data from Supabase
-                    const { data: userInfo } = await supabase.auth.getUser();
-                    const userId = userInfo.user?.id;
                     if (userId) {
                       // Use the new clear_all_progress function for thorough cleanup
                       await supabase.rpc("clear_all_progress", {
@@ -1997,6 +2240,9 @@ export default function CalendarScreen() {
                         loadWeeklyProgress(),
                       ]);
                     }
+
+                    // Reload calendars dropdown list
+                    await loadUserCalendars();
                   } catch (error) {
                     console.error("Error clearing calendar data:", error);
                   }
