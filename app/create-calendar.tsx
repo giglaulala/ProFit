@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   useColorScheme,
@@ -25,6 +26,7 @@ export default function CreateCalendarScreen() {
     "amateur" | "beginner" | "medium" | "experienced" | "professional"
   >("beginner");
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [calendarName, setCalendarName] = useState("");
 
   const workoutGoals = useMemo(
     () => [
@@ -144,18 +146,19 @@ export default function CreateCalendarScreen() {
       // Proceed without strict block if API doesn't return count here
 
       const cal = generateCalendar();
-      const selectedGoalTitle =
+      const fallbackTitle =
         (workoutGoals.find((g) => g.id === goal)?.title as string) || "Personalized Plan";
+      const finalTitle = (calendarName || "").trim() || fallbackTitle;
 
       const { error } = await supabase.from("calendars").insert({
         id: cal.id,
         owner,
-        title: selectedGoalTitle,
+        title: finalTitle,
         plan: cal.plan,
       });
       if (error && !String(error.message || "").includes("duplicate")) throw error;
 
-      const calWithTitle = { ...cal, title: selectedGoalTitle };
+      const calWithTitle = { ...cal, title: finalTitle };
       await AsyncStorage.setItem("userCalendar", JSON.stringify(calWithTitle));
       // Track locally so it appears in the dropdown filter
       try {
@@ -185,6 +188,21 @@ export default function CreateCalendarScreen() {
         </Text>
       </View>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
+        <Text style={{ color: colors.text, marginBottom: 6, fontWeight: "600" }}>Name</Text>
+        <TextInput
+          placeholder="e.g., Summer Shred"
+          placeholderTextColor={colors.text + "80"}
+          value={calendarName}
+          onChangeText={setCalendarName}
+          style={{
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            backgroundColor: colors.lightGray,
+            color: colors.text,
+            marginBottom: 14,
+          }}
+        />
         <Text style={{ color: colors.text, marginBottom: 8, fontWeight: "600" }}>Goal</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {workoutGoals.map((g) => (
