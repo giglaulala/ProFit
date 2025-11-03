@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   Image,
@@ -77,6 +77,9 @@ export default function CalendarScreen() {
   const [showAllPlans, setShowAllPlans] = useState(false);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<WorkoutVideo | null>(null);
+  // Track if goal was already initialized from an active calendar to avoid being
+  // overridden by generic profile/setup defaults loading later
+  const goalInitializedFromCalendarRef = useRef(false);
   const [joinCode, setJoinCode] = useState("");
   const [userCalendar, setUserCalendar] = useState<any | null>(null);
   const [calendarMap, setCalendarMap] = useState<Record<string, any>>({});
@@ -131,7 +134,8 @@ export default function CalendarScreen() {
       const myIds = await getMyCalendarIds();
       const allowedIds = new Set(myIds);
       // If nothing tracked locally yet, only allow the current active calendar (if any)
-      const onlyCurrentId = !myIds.length && userCalendar?.id ? userCalendar.id : null;
+      const onlyCurrentId =
+        !myIds.length && userCalendar?.id ? userCalendar.id : null;
       const { data, error } = await supabase
         .from("calendars")
         .select("id, title, plan, owner, goal, level, created_at")
@@ -139,11 +143,12 @@ export default function CalendarScreen() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       let raw = (data || []).filter((c) => c && c.owner === owner);
-      raw = raw.filter((c) => {
-        if (allowedIds.size > 0) return allowedIds.has(c.id);
-        if (onlyCurrentId) return c.id === onlyCurrentId;
-        return false;
-      })
+      raw = raw
+        .filter((c) => {
+          if (allowedIds.size > 0) return allowedIds.has(c.id);
+          if (onlyCurrentId) return c.id === onlyCurrentId;
+          return false;
+        })
         .map((c) => ({
           id: c.id,
           title: c.title,
@@ -804,6 +809,7 @@ export default function CalendarScreen() {
           // Update selectedWorkoutGoal from the loaded calendar
           if (calendar.goal) {
             setSelectedWorkoutGoal(calendar.goal);
+            goalInitializedFromCalendarRef.current = true;
           }
         }
         if (mapStr) setCalendarMap(JSON.parse(mapStr));
@@ -821,7 +827,10 @@ export default function CalendarScreen() {
             if (typeof settings.height === "number") setHeight(settings.height);
             if (typeof settings.free_days === "number")
               setFreeDays(settings.free_days);
-            if (typeof settings.goal === "string")
+            if (
+              typeof settings.goal === "string" &&
+              !goalInitializedFromCalendarRef.current
+            )
               setSelectedWorkoutGoal(settings.goal);
           } else {
             const setupStr = await AsyncStorage.getItem("userSetupData");
@@ -830,7 +839,11 @@ export default function CalendarScreen() {
               if (typeof s.weight === "number") setWeight(s.weight);
               if (typeof s.height === "number") setHeight(s.height);
               if (typeof s.freeDays === "number") setFreeDays(s.freeDays);
-              if (typeof s.goal === "string") setSelectedWorkoutGoal(s.goal);
+              if (
+                typeof s.goal === "string" &&
+                !goalInitializedFromCalendarRef.current
+              )
+                setSelectedWorkoutGoal(s.goal);
             }
           }
 
@@ -1798,8 +1811,14 @@ export default function CalendarScreen() {
       >
         {/* Workout Goals */}
         <View style={styles.goalsContainer}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}> 
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               PERSONALIZED PLAN
             </Text>
             {(!!userCalendar || calendars.length > 0) && (
@@ -1845,7 +1864,10 @@ export default function CalendarScreen() {
                 <TouchableOpacity
                   key={c.id}
                   onPress={async () => {
-                    await AsyncStorage.setItem("userCalendar", JSON.stringify(c));
+                    await AsyncStorage.setItem(
+                      "userCalendar",
+                      JSON.stringify(c)
+                    );
                     setUserCalendar(c);
                     if (c.goal) setSelectedWorkoutGoal(c.goal);
                     if (c.level) setLevel(c.level);
@@ -1862,7 +1884,11 @@ export default function CalendarScreen() {
                 >
                   <Text style={{ color: colors.text }}>{c.title || c.id}</Text>
                   {userCalendar?.id === c.id && (
-                    <Ionicons name="checkmark" size={16} color={colors.primary} />
+                    <Ionicons
+                      name="checkmark"
+                      size={16}
+                      color={colors.primary}
+                    />
                   )}
                 </TouchableOpacity>
               ))}
