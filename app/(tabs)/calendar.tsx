@@ -2221,62 +2221,85 @@ export default function CalendarScreen() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={async () => {
-                  try {
-                    const current = userCalendar;
-                    // Delete active calendar from Supabase
-                    const { data: userInfo } = await supabase.auth.getUser();
-                    const userId = userInfo.user?.id;
-                    if (userId && current?.id) {
-                      await supabase
-                        .from("calendars")
-                        .delete()
-                        .eq("id", current.id)
-                        .eq("owner", userId);
-                    }
+                onPress={() => {
+                  const cancelText =
+                    t("dashboard.cancel") === "dashboard.cancel"
+                      ? "Cancel"
+                      : t("dashboard.cancel");
+                  const deleteText =
+                    t("dashboard.delete") === "dashboard.delete"
+                      ? "Delete"
+                      : t("dashboard.delete");
+                  showCustomAlertModal(
+                    "Delete calendar",
+                    "This will permanently delete your calendar and progress. Continue?",
+                    [
+                      { text: cancelText },
+                      {
+                        text: deleteText,
+                        onPress: async () => {
+                          try {
+                            const current = userCalendar;
+                            // Delete active calendar from Supabase
+                            const { data: userInfo } =
+                              await supabase.auth.getUser();
+                            const userId = userInfo.user?.id;
+                            if (userId && current?.id) {
+                              await supabase
+                                .from("calendars")
+                                .delete()
+                                .eq("id", current.id)
+                                .eq("owner", userId);
+                            }
 
-                    // Clear local calendar data
-                    await AsyncStorage.removeItem("userCalendar");
-                    setUserCalendar(null);
-                    // Remove from local list
-                    if (current?.id) {
-                      await removeMyCalendarId(current.id);
-                    }
-                    // Reset selectedDays when clearing calendar
-                    setSelectedDays([]);
+                            // Clear local calendar data
+                            await AsyncStorage.removeItem("userCalendar");
+                            setUserCalendar(null);
+                            // Remove from local list
+                            if (current?.id) {
+                              await removeMyCalendarId(current.id);
+                            }
+                            // Reset selectedDays when clearing calendar
+                            setSelectedDays([]);
 
-                    // Clear monthly goals and progress data from Supabase
-                    if (userId) {
-                      // Use the new clear_all_progress function for thorough cleanup
-                      await supabase.rpc("clear_all_progress", {
-                        p_user_id: userId,
-                      });
+                            // Clear monthly goals and progress data from Supabase
+                            if (userId) {
+                              await supabase.rpc("clear_all_progress", {
+                                p_user_id: userId,
+                              });
 
-                      // Reset progress state immediately
-                      setMonthlyProgress({
-                        workoutsCompleted: 0,
-                        caloriesBurned: 0,
-                        minutesExercised: 0,
-                      });
-                      setWeeklyProgress({
-                        workoutsCompleted: 0,
-                        caloriesBurned: 0,
-                        minutesExercised: 0,
-                      });
+                              // Reset progress state immediately
+                              setMonthlyProgress({
+                                workoutsCompleted: 0,
+                                caloriesBurned: 0,
+                                minutesExercised: 0,
+                              });
+                              setWeeklyProgress({
+                                workoutsCompleted: 0,
+                                caloriesBurned: 0,
+                                minutesExercised: 0,
+                              });
 
-                      // Reload goals and progress to ensure clean state
-                      await Promise.all([
-                        loadMonthlyGoals(),
-                        loadMonthlyProgress(),
-                        loadWeeklyProgress(),
-                      ]);
-                    }
+                              // Reload goals and progress to ensure clean state
+                              await Promise.all([
+                                loadMonthlyGoals(),
+                                loadMonthlyProgress(),
+                                loadWeeklyProgress(),
+                              ]);
+                            }
 
-                    // Reload calendars dropdown list
-                    await loadUserCalendars();
-                  } catch (error) {
-                    console.error("Error clearing calendar data:", error);
-                  }
+                            // Reload calendars dropdown list
+                            await loadUserCalendars();
+                          } catch (error) {
+                            console.error(
+                              "Error clearing calendar data:",
+                              error
+                            );
+                          }
+                        },
+                      },
+                    ]
+                  );
                 }}
                 style={{
                   paddingHorizontal: 10,
@@ -2286,7 +2309,9 @@ export default function CalendarScreen() {
                 }}
               >
                 <Text style={{ color: colors.background }}>
-                  {t("dashboard.clear")}
+                  {t("dashboard.delete") === "dashboard.delete"
+                    ? "Delete"
+                    : t("dashboard.delete")}
                 </Text>
               </TouchableOpacity>
             </View>
