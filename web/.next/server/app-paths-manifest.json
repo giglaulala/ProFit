@@ -1,7 +1,8 @@
 {
+  "/page": "app/page.js",
+  "/[locale]/product/page": "app/[locale]/product/page.js",
   "/[locale]/page": "app/[locale]/page.js",
-  "/[locale]/download/page": "app/[locale]/download/page.js",
-  "/[locale]/contact/page": "app/[locale]/contact/page.js",
   "/[locale]/pricing/page": "app/[locale]/pricing/page.js",
-  "/[locale]/product/page": "app/[locale]/product/page.js"
+  "/[locale]/contact/page": "app/[locale]/contact/page.js",
+  "/[locale]/download/page": "app/[locale]/download/page.js"
 }

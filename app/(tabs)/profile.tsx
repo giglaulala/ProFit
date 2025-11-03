@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Modal,
@@ -43,6 +44,14 @@ export default function ProfileScreen() {
   useEffect(() => {
     loadUserData();
   }, []);
+
+  // Reload stats every time the profile tab/screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      loadUserData();
+      return () => {};
+    }, [])
+  );
 
   const loadUserData = async () => {
     try {

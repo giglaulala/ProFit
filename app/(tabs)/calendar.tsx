@@ -87,11 +87,9 @@ export default function CalendarScreen() {
   const [summaryData, setSummaryData] = useState<{
     selectedDate?: string;
     selectedMinutes?: number;
-    selectedCalories?: number;
     totalCompleted: number;
     totalMinutes: number;
-    totalCalories: number;
-  }>({ totalCompleted: 0, totalMinutes: 0, totalCalories: 0 });
+  }>({ totalCompleted: 0, totalMinutes: 0 });
 
   // Custom Alert States
   const [showCustomAlert, setShowCustomAlert] = useState(false);
@@ -641,14 +639,16 @@ export default function CalendarScreen() {
   };
 
   const finishWorkoutProcess = async () => {
-    const totalMs = workoutStartAt ? Date.now() - workoutStartAt : 0;
-    const totalMin = Math.max(1, Math.round(totalMs / 60000));
+    const now = Date.now();
+    const startedMs = workoutStartAt ? now - workoutStartAt : 0;
+    const startedMin = Math.round(startedMs / 60000);
 
-    // Calculate total time spent in workout popup
-    const popupTimeMs = workoutPopupStartTime
-      ? Date.now() - workoutPopupStartTime
-      : 0;
+    // Calculate total time spent in workout popup (fallback when Start wasn't pressed)
+    const popupTimeMs = workoutPopupStartTime ? now - workoutPopupStartTime : 0;
     const popupTimeMin = Math.round(popupTimeMs / 60000);
+
+    // Use the larger of the two to better reflect real session duration
+    const totalMin = Math.max(1, startedMin, popupTimeMin);
 
     // Close first to avoid a re-render that shows Start button
     setShowWorkoutModal(false);
@@ -673,6 +673,7 @@ export default function CalendarScreen() {
             completedAt: new Date().toISOString(),
           };
           await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
+          setUserCalendar(updated);
           setUserCalendar(updated);
 
           // Update progress tracking
@@ -1009,7 +1010,6 @@ export default function CalendarScreen() {
     const planObj = (userCalendar?.plan ?? {}) as Record<string, any>;
     // Selected day stats
     let selectedMinutes: number | undefined;
-    let selectedCalories: number | undefined;
     Object.values(planObj).forEach((p: any) => {
       const d = new Date(p.date);
       const dd = String(d.getDate()).padStart(2, "0");
@@ -1017,29 +1017,24 @@ export default function CalendarScreen() {
       const key = `${dd}.${mm}`;
       if (key === date && p.completed && p.stats) {
         selectedMinutes = p.stats.minutes;
-        selectedCalories = p.stats.calories;
       }
     });
 
     // Totals across plan
     let totalCompleted = 0;
     let totalMinutes = 0;
-    let totalCalories = 0;
     Object.values(planObj).forEach((p: any) => {
       if (p.completed) {
         totalCompleted += 1;
         if (p.stats?.minutes) totalMinutes += p.stats.minutes;
-        if (p.stats?.calories) totalCalories += p.stats.calories;
       }
     });
 
     setSummaryData({
       selectedDate: date,
       selectedMinutes,
-      selectedCalories,
       totalCompleted,
       totalMinutes,
-      totalCalories,
     });
     setShowSummaryModal(true);
   };
@@ -2699,17 +2694,9 @@ export default function CalendarScreen() {
                   Total minutes: {summaryData.totalMinutes}
                 </Text>
               </View>
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-              >
-                <Ionicons name="flame" size={18} color={colors.accent} />
-                <Text style={{ color: colors.text }}>
-                  Total calories: {summaryData.totalCalories}
-                </Text>
-              </View>
+              {/* Removed calories row as requested */}
 
-              {(summaryData.selectedMinutes ||
-                summaryData.selectedCalories) && (
+              {summaryData.selectedMinutes && (
                 <View style={{ marginTop: 10 }}>
                   <Text
                     style={[
@@ -2734,19 +2721,6 @@ export default function CalendarScreen() {
                     />
                     <Text style={{ color: colors.text }}>
                       Minutes: {summaryData.selectedMinutes ?? 0}
-                    </Text>
-                  </View>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 8,
-                      marginTop: 4,
-                    }}
-                  >
-                    <Ionicons name="flame" size={16} color={colors.accent} />
-                    <Text style={{ color: colors.text }}>
-                      Calories: {summaryData.selectedCalories ?? 0}
                     </Text>
                   </View>
                 </View>
