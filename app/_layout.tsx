@@ -54,6 +54,12 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="create-calendar"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
               name="(tabs)"
               options={{
                 headerShown: false,
