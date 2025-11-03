@@ -1816,20 +1816,35 @@ export default function CalendarScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               PERSONALIZED PLAN
             </Text>
-            {(!!userCalendar || calendars.length > 0) && (
-              <TouchableOpacity
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                onPress={() => setShowPlansMenu((v) => !v)}
-                activeOpacity={0.7}
-                style={{ padding: 6, borderRadius: 8 }}
-              >
-                <Ionicons
-                  name={showPlansMenu ? "chevron-up" : "chevron-down"}
-                  size={20}
-                  color={colors.text}
-                />
-              </TouchableOpacity>
-            )}
+            {(() => {
+              if (!!userCalendar || calendars.length > 0) {
+                return (
+                  <TouchableOpacity
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onPress={() => setShowPlansMenu((v) => !v)}
+                    activeOpacity={0.7}
+                    style={{ padding: 6, borderRadius: 8 }}
+                  >
+                    <Ionicons
+                      name={showPlansMenu ? "chevron-up" : "chevron-down"}
+                      size={20}
+                      color={colors.text}
+                    />
+                  </TouchableOpacity>
+                );
+              }
+              // No calendars at all: show a + button to create
+              return (
+                <TouchableOpacity
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={() => router.push("/create-calendar")}
+                  activeOpacity={0.8}
+                  style={{ padding: 6, borderRadius: 8 }}
+                >
+                  <Ionicons name="add" size={20} color={colors.text} />
+                </TouchableOpacity>
+              );
+            })()}
           </View>
           {showPlansMenu && (
             <View
@@ -1855,6 +1870,13 @@ export default function CalendarScreen() {
                   Your calendars
                 </Text>
               </View>
+              {!userCalendar && calendars.length === 0 && (
+                <View style={{ paddingHorizontal: 12, paddingVertical: 12 }}>
+                  <Text style={{ color: colors.text + "AA" }}>
+                    No calendars yet
+                  </Text>
+                </View>
+              )}
               {calendars.map((c) => (
                 <TouchableOpacity
                   key={c.id}
@@ -2287,6 +2309,12 @@ export default function CalendarScreen() {
                                 loadWeeklyProgress(),
                               ]);
                             }
+
+                            // Immediately update local dropdown state and close menu
+                            setCalendars((prev) =>
+                              prev.filter((x) => x.id !== current?.id)
+                            );
+                            setShowPlansMenu(false);
 
                             // Reload calendars dropdown list
                             await loadUserCalendars();
