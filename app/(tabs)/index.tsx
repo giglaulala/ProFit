@@ -1619,6 +1619,68 @@ export default function DashboardScreen() {
     }, [])
   );
 
+  // Build "This Week" minutes per day for the dashboard chart from the active calendar
+  const weeklyChart = useMemo(() => {
+    // If calendar has selectedDays, highlight those days regardless of completions
+    const displayDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    if (userCalendar?.selectedDays && Array.isArray(userCalendar.selectedDays)) {
+      const selectedSet = new Set(userCalendar.selectedDays as string[]);
+      // Give selected (used) days full height value 4, and unused days value 1 (quarter height)
+      return displayDays.map((d) => ({
+        day: d,
+        value: selectedSet.has(d) ? 4 : 1,
+        dateKey: undefined as any,
+      }));
+    }
+
+    const values = new Array(7).fill(0) as number[];
+
+    // Helpers using LOCAL midnights to avoid timezone skew
+    const toLocalMidnight = (d: Date) =>
+      new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const ddmm = (d: Date) => {
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      return `${dd}.${mm}`;
+    };
+
+    // Use last 7 days window ending today (local) to avoid week-boundary issues
+    const now = new Date();
+    const today = toLocalMidnight(now);
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6);
+    const startMs = start.getTime();
+    const endMs = today.getTime();
+
+    const weekDates: Date[] = Array.from({ length: 7 }, (_, i) =>
+      new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)
+    );
+
+    const planObj = (userCalendar?.plan ?? {}) as Record<string, any>;
+    Object.values(planObj).forEach((p: any) => {
+      if (!(p && p.date)) return;
+      // Parse ISO date manually to avoid JS UTC parsing quirks
+      const parts = String(p.date).slice(0, 10).split("-");
+      if (parts.length !== 3) return;
+      const y = Number(parts[0]);
+      const m = Number(parts[1]);
+      const d = Number(parts[2]);
+      const entry = new Date(y, m - 1, d); // local midnight of that calendar day
+      const t = entry.getTime();
+      if (t >= startMs && t <= endMs && p.completed && p.stats?.minutes) {
+        const idx = Math.round((t - startMs) / 86400000);
+        if (idx >= 0 && idx < 7) values[idx] += Number(p.stats.minutes) || 0;
+      }
+    });
+
+    // Build labels from actual dates to avoid misalignment
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return values.map((value, idx) => ({
+      day: dayNames[weekDates[idx].getDay()],
+      value,
+      dateKey: ddmm(weekDates[idx]),
+    }));
+  }, [userCalendar]);
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -1736,40 +1798,43 @@ export default function DashboardScreen() {
             ]}
           >
             <View style={styles.progressChartBars}>
-              {[
-                { day: "Mon", value: 45, target: 60 },
-                { day: "Tue", value: 60, target: 60 },
-                { day: "Wed", value: 30, target: 60 },
-                { day: "Thu", value: 75, target: 60 },
-                { day: "Fri", value: 50, target: 60 },
-                { day: "Sat", value: 90, target: 60 },
-                { day: "Sun", value: 40, target: 60 },
-              ].map((stat, index) => (
-                <View key={index} style={styles.progressBarContainer}>
-                  <View style={styles.progressBarWrapper}>
-                    <View
-                      style={[
-                        styles.progressBar,
-                        {
-                          height: Math.min(
-                            (stat.value / stat.target) * 100,
-                            100
-                          ),
-                          backgroundColor:
-                            stat.value >= stat.target
-                              ? colors.primary
-                              : colors.secondary,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text
-                    style={[styles.progressBarLabel, { color: colors.text }]}
+              {(() => {
+                const maxVal = Math.max(1, ...weeklyChart.map((s) => s.value));
+                return weeklyChart.map((stat, index) => {
+                  // Scale bar height relative to the week's max to show contrast
+                  const heightPct = Math.min((stat.value / maxVal) * 100, 100);
+                const hasActivity = stat.value > 0;
+                  return (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.progressBarContainer}
+                    activeOpacity={hasActivity ? 0.8 : 1}
+                    onPress={() => {
+                      if (hasActivity && stat.dateKey) openSummaryForDate(stat.dateKey);
+                    }}
                   >
-                    {stat.day}
-                  </Text>
-                </View>
-              ))}
+                    <View style={styles.progressBarWrapper}>
+                      <View
+                        style={[
+                          styles.progressBar,
+                          {
+                            height: Math.max(4, heightPct),
+                            backgroundColor: hasActivity
+                              ? colors.primary
+                              : colors.darkGray,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text
+                      style={[styles.progressBarLabel, { color: colors.text }]}
+                    >
+                      {stat.day}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              });
+              })()}
             </View>
             <View style={styles.progressChartStats}>
               <View style={styles.progressChartStat}>
