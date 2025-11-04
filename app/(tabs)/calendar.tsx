@@ -1817,6 +1817,36 @@ export default function CalendarScreen() {
               PERSONALIZED PLAN
             </Text>
             {(() => {
+              // When there are no calendars at all, keep the + button here for quick creation
+              if (!userCalendar && calendars.length === 0) {
+                return (
+                  <TouchableOpacity
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onPress={() => router.push("/create-calendar")}
+                    activeOpacity={0.8}
+                    style={{ padding: 6, borderRadius: 8 }}
+                  >
+                    <Ionicons name="add" size={20} color={colors.text} />
+                  </TouchableOpacity>
+                );
+              }
+              return null;
+            })()}
+          </View>
+          {/* Your Calendars row moved here with dropdown toggle */}
+          <View
+            style={{
+              marginTop: 6,
+              marginBottom: 6,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Text style={{ color: colors.text, fontWeight: "600" }}>
+              Your Calendars
+            </Text>
+            {(() => {
               if (!!userCalendar || calendars.length > 0) {
                 return (
                   <TouchableOpacity
@@ -1833,17 +1863,7 @@ export default function CalendarScreen() {
                   </TouchableOpacity>
                 );
               }
-              // No calendars at all: show a + button to create
-              return (
-                <TouchableOpacity
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  onPress={() => router.push("/create-calendar")}
-                  activeOpacity={0.8}
-                  style={{ padding: 6, borderRadius: 8 }}
-                >
-                  <Ionicons name="add" size={20} color={colors.text} />
-                </TouchableOpacity>
-              );
+              return null;
             })()}
           </View>
           {showPlansMenu && (
@@ -1855,21 +1875,6 @@ export default function CalendarScreen() {
                 overflow: "hidden",
               }}
             >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                  borderBottomWidth: 1,
-                  borderBottomColor: "rgba(255,255,255,0.08)",
-                }}
-              >
-                <Text style={{ color: colors.text, fontWeight: "600" }}>
-                  Your calendars
-                </Text>
-              </View>
               {!userCalendar && calendars.length === 0 && (
                 <View style={{ paddingHorizontal: 12, paddingVertical: 12 }}>
                   <Text style={{ color: colors.text + "AA" }}>
