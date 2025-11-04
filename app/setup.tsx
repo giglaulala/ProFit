@@ -18,6 +18,215 @@ import ThemedLoader from "../components/ThemedLoader";
 import Colors from "../constants/Colors";
 import { supabase } from "../lib/supabase";
 
+// Calendar generation functions
+const buildExercisesFor = (
+  goal: "weight_loss" | "muscle_gain" | "maintenance" | "strength",
+  level: "amateur" | "beginner" | "medium" | "experienced" | "professional" = "beginner"
+) => {
+  const baseTime = {
+    amateur: 40,
+    beginner: 45,
+    medium: 50,
+    experienced: 55,
+    professional: 60,
+  }[level];
+  
+  if (goal === "weight_loss")
+    return [
+      {
+        name: "Jogging",
+        muscleGroups: ["cardio"],
+        equipment: "None",
+        durationSec: baseTime * 60,
+      },
+      {
+        name: "Bodyweight Circuit",
+        muscleGroups: ["full"],
+        equipment: "None",
+        durationSec: 15 * 60,
+      },
+      {
+        name: "Jump Rope",
+        muscleGroups: ["cardio"],
+        equipment: "None",
+        durationSec: 10 * 60,
+      },
+    ];
+  if (goal === "muscle_gain")
+    return [
+      {
+        name: "Bench Press",
+        muscleGroups: ["chest"],
+        equipment: "Gym",
+        durationSec: 12 * 60,
+      },
+      {
+        name: "Bent-over Rows",
+        muscleGroups: ["back"],
+        equipment: "Gym",
+        durationSec: 12 * 60,
+      },
+      {
+        name: "Squats",
+        muscleGroups: ["legs"],
+        equipment: "Gym",
+        durationSec: 12 * 60,
+      },
+    ];
+  if (goal === "maintenance")
+    return [
+      {
+        name: "Running",
+        muscleGroups: ["cardio"],
+        equipment: "None",
+        durationSec: 25 * 60,
+      },
+      {
+        name: "Push-ups",
+        muscleGroups: ["chest"],
+        equipment: "None",
+        durationSec: 10 * 60,
+      },
+      {
+        name: "Lunges",
+        muscleGroups: ["legs"],
+        equipment: "None",
+        durationSec: 10 * 60,
+      },
+    ];
+  return [
+    {
+      name: "Deadlifts",
+      muscleGroups: ["back"],
+      equipment: "Gym",
+      durationSec: 12 * 60,
+    },
+    {
+      name: "Military Press",
+      muscleGroups: ["shoulders"],
+      equipment: "Gym",
+      durationSec: 12 * 60,
+    },
+    {
+      name: "Rows",
+      muscleGroups: ["back"],
+      equipment: "Gym",
+      durationSec: 12 * 60,
+    },
+  ];
+};
+
+function buildDailyPlanForGoal(
+  goal: "weight_loss" | "muscle_gain" | "maintenance" | "strength",
+  level: "amateur" | "beginner" | "medium" | "experienced" | "professional",
+  dayIndex: number
+): { entries: any[]; restAfterEachSec: number } {
+  const base = buildExercisesFor(goal, level);
+  const weeklyFocus: ("weight" | "cardio" | "mobility" | "explosive")[] = [
+    "weight",
+    "cardio",
+    "weight",
+    "mobility",
+    "weight",
+    "explosive",
+    "mobility",
+  ];
+  const focus = weeklyFocus[dayIndex];
+  const variedRest = (type: string) =>
+    type === "cardio" ? 30 : type === "mobility" ? 20 : type === "explosive" ? 90 : 60;
+
+  let entries = base.map((e) => ({ ...e }));
+  const restAfterEachSec = variedRest(focus);
+  return { entries, restAfterEachSec };
+}
+
+const generateCalendar = (
+  goal: "weight_loss" | "muscle_gain" | "maintenance" | "strength",
+  selectedDays: string[],
+  level: "amateur" | "beginner" | "medium" | "experienced" | "professional" = "beginner"
+) => {
+  const plan: Record<string, any> = {};
+  const today = new Date();
+  const end = new Date();
+  end.setDate(today.getDate() + 28);
+  const dayIdx = (d: Date) => d.getDay();
+  const dowShort = (i: number) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][i];
+
+  for (let dt = new Date(today); dt <= end; dt.setDate(dt.getDate() + 1)) {
+    const di = dayIdx(dt);
+    const dn = dowShort(di);
+    if (!selectedDays.includes(dn)) continue;
+    const iso = dt.toISOString().slice(0, 10);
+    const dayPlan = buildDailyPlanForGoal(goal, level, di);
+    plan[iso] = {
+      date: iso,
+      entries: dayPlan.entries,
+      restAfterEachSec: dayPlan.restAfterEachSec,
+    };
+  }
+  const shareId = `ProFit-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  const cal = {
+    id: shareId,
+    goal,
+    level,
+    selectedDays,
+    plan,
+    shareCode: shareId,
+  };
+  return cal;
+};
+
+const createCalendarFromSetup = async (
+  goal: "weight_loss" | "muscle_gain" | "maintenance" | "strength",
+  selectedDays: string[],
+  userId: string
+) => {
+  try {
+    const cal = generateCalendar(goal, selectedDays, "beginner");
+    const workoutGoals = [
+      { id: "weight_loss", title: "Weight Loss" },
+      { id: "muscle_gain", title: "Muscle Gain" },
+      { id: "maintenance", title: "Maintain Form" },
+      { id: "strength", title: "Increase Strength" },
+    ];
+    const fallbackTitle =
+      (workoutGoals.find((g) => g.id === goal)?.title as string) || "Personalized Plan";
+    const finalTitle = `${fallbackTitle} Plan`;
+
+    const { error } = await supabase.from("calendars").insert({
+      id: cal.id,
+      owner: userId,
+      title: finalTitle,
+      plan: cal.plan,
+      goal: cal.goal,
+      level: cal.level,
+    });
+    
+    if (error && !String(error.message || "").includes("duplicate")) {
+      throw error;
+    }
+
+    const calWithTitle = { ...cal, title: finalTitle };
+    await AsyncStorage.setItem("userCalendar", JSON.stringify(calWithTitle));
+    
+    // Track locally so it appears in the dropdown filter
+    try {
+      const key = "myCalendars";
+      const s = await AsyncStorage.getItem(key);
+      const ids = s ? (JSON.parse(s) as string[]) : [];
+      if (!ids.includes(calWithTitle.id)) {
+        ids.push(calWithTitle.id);
+        await AsyncStorage.setItem(key, JSON.stringify(ids));
+      }
+    } catch {}
+
+    // Set flag to show greeting in calendar tab
+    await AsyncStorage.setItem("showCalendarGreeting", "true");
+  } catch (e: any) {
+    console.error("Error creating calendar:", e.message || "Failed to create calendar");
+  }
+};
+
 export default function SetupScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
@@ -26,6 +235,7 @@ export default function SetupScreen() {
   const [weight, setWeight] = useState("");
   const [height, setHeight] = useState("");
   const [freeDays, setFreeDays] = useState("3");
+  const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const workoutGoals = [
@@ -63,6 +273,22 @@ export default function SetupScreen() {
     { value: "6", label: "6 days per week" },
   ];
 
+  const weekdayOptions = [
+    { value: "Mon", label: "Monday" },
+    { value: "Tue", label: "Tuesday" },
+    { value: "Wed", label: "Wednesday" },
+    { value: "Thu", label: "Thursday" },
+    { value: "Fri", label: "Friday" },
+    { value: "Sat", label: "Saturday" },
+    { value: "Sun", label: "Sunday" },
+  ];
+
+  const toggleWeekday = (day: string) => {
+    setSelectedWeekdays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+  };
+
   const handleNext = async () => {
     if (currentStep === 1 && !selectedGoal) {
       Alert.alert("Error", "Please select a workout goal");
@@ -72,19 +298,24 @@ export default function SetupScreen() {
       Alert.alert("Error", "Please enter weight and height");
       return;
     }
+    if (currentStep === 3 && selectedWeekdays.length === 0) {
+      Alert.alert("Error", "Please select at least one weekday for workouts");
+      return;
+    }
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
     } else {
       // Show loader for a brief moment and navigate to main app
       setIsLoading(true);
 
-      // Save the setup data (optional, for future use)
+      // Save the setup data and create calendar
       try {
         const setupData = {
           goal: selectedGoal,
           weight: parseFloat(weight),
           height: parseFloat(height),
-          freeDays: parseInt(freeDays),
+          freeDays: selectedWeekdays.length,
+          selectedWeekdays: selectedWeekdays,
           completedAt: new Date().toISOString(),
         };
 
@@ -105,6 +336,13 @@ export default function SetupScreen() {
               completed_at: setupData.completedAt,
             },
             { onConflict: "id" }
+          );
+
+          // Create calendar based on user inputs
+          await createCalendarFromSetup(
+            selectedGoal as any,
+            selectedWeekdays,
+            userId
           );
         }
       } catch (error) {
@@ -266,33 +504,39 @@ export default function SetupScreen() {
 
   const renderStep3 = () => (
     <View style={styles.stepContainer}>
-      <Text style={[styles.stepTitle, { color: colors.text }]}>Free Days</Text>
+      <Text style={[styles.stepTitle, { color: colors.text }]}>Free Weekdays</Text>
       <Text style={[styles.stepDescription, { color: colors.text }]}>
-        How many days do you have available for workouts per week?
+        Which days of the week are you available for workouts? Select all that apply.
       </Text>
 
-      <View style={styles.daysContainer}>
-        {freeDaysOptions.map((option) => (
+      <View style={styles.weekdaysContainer}>
+        {weekdayOptions.map((option) => (
           <TouchableOpacity
             key={option.value}
             style={[
-              styles.dayOption,
+              styles.weekdayOption,
               {
                 backgroundColor:
-                  freeDays === option.value ? colors.primary : colors.lightGray,
+                  selectedWeekdays.includes(option.value)
+                    ? colors.primary
+                    : colors.lightGray,
                 borderColor:
-                  freeDays === option.value ? colors.primary : "transparent",
+                  selectedWeekdays.includes(option.value)
+                    ? colors.primary
+                    : "transparent",
                 borderWidth: 2,
               },
             ]}
-            onPress={() => setFreeDays(option.value)}
+            onPress={() => toggleWeekday(option.value)}
             activeOpacity={0.7}
           >
             <Text
               style={[
-                styles.dayOptionText,
+                styles.weekdayOptionText,
                 {
-                  color: freeDays === option.value ? colors.black : colors.text,
+                  color: selectedWeekdays.includes(option.value)
+                    ? colors.black
+                    : colors.text,
                 },
               ]}
             >
@@ -347,10 +591,14 @@ export default function SetupScreen() {
 
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryLabel, { color: colors.text }]}>
-            Free Days:
+            Workout Days:
           </Text>
           <Text style={[styles.summaryValue, { color: colors.darkGreen }]}>
-            {freeDaysOptions.find((d) => d.value === freeDays)?.label}
+            {selectedWeekdays.length > 0
+              ? selectedWeekdays
+                  .map((d) => weekdayOptions.find((o) => o.value === d)?.label)
+                  .join(", ")
+              : "None selected"}
           </Text>
         </View>
       </View>
@@ -547,6 +795,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dayOptionText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  weekdaysContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  weekdayOption: {
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+    minWidth: 100,
+  },
+  weekdayOptionText: {
     fontSize: 16,
     fontWeight: "600",
   },

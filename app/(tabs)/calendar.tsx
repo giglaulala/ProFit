@@ -90,6 +90,7 @@ export default function CalendarScreen() {
     totalCompleted: number;
     totalMinutes: number;
   }>({ totalCompleted: 0, totalMinutes: 0 });
+  const [showGreeting, setShowGreeting] = useState(false);
 
   // Custom Alert States
   const [showCustomAlert, setShowCustomAlert] = useState(false);
@@ -183,16 +184,49 @@ export default function CalendarScreen() {
     }
   };
 
+  const checkCalendarGreeting = React.useCallback(async () => {
+    try {
+      const greetingFlag = await AsyncStorage.getItem("showCalendarGreeting");
+      if (greetingFlag === "true") {
+        setShowGreeting(true);
+        // Clear the flag after showing
+        await AsyncStorage.removeItem("showCalendarGreeting");
+      }
+    } catch (error) {
+      console.error("Error checking calendar greeting:", error);
+    }
+  }, []);
+
   useEffect(() => {
     loadUserCalendars();
-  }, []);
+    checkCalendarGreeting();
+  }, [checkCalendarGreeting]);
 
   // Refresh calendars list when returning to this tab
   useFocusEffect(
     React.useCallback(() => {
       loadUserCalendars();
+      checkCalendarGreeting();
+      // Reload userCalendar from AsyncStorage to ensure newly created calendar is shown
+      (async () => {
+        try {
+          const calStr = await AsyncStorage.getItem("userCalendar");
+          if (calStr) {
+            const calendar = JSON.parse(calStr);
+            setUserCalendar(calendar);
+            if (calendar.selectedDays) {
+              setSelectedDays(calendar.selectedDays);
+            }
+            if (calendar.goal) {
+              setSelectedWorkoutGoal(calendar.goal);
+            }
+          }
+        } catch (e) {
+          // noop
+        }
+      })();
       return () => {};
-    }, [])
+    }, [checkCalendarGreeting])
   );
   const [alertData, setAlertData] = useState<{
     title: string;
@@ -1804,6 +1838,53 @@ export default function CalendarScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: 0 }}
       >
+        {/* Greeting Banner */}
+        {showGreeting && (
+          <View
+            style={{
+              margin: 16,
+              padding: 16,
+              borderRadius: 12,
+              backgroundColor: colors.primary,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  color: colors.black,
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  marginBottom: 4,
+                }}
+              >
+                🎉 Welcome! Your Calendar is Ready
+              </Text>
+              <Text
+                style={{
+                  color: colors.black,
+                  fontSize: 14,
+                  opacity: 0.8,
+                }}
+              >
+                Your personalized workout calendar has been created based on
+                your preferences. Start your fitness journey today!
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowGreeting(false)}
+              style={{
+                padding: 8,
+                marginLeft: 12,
+              }}
+            >
+              <Ionicons name="close" size={24} color={colors.black} />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Workout Goals */}
         <View style={styles.goalsContainer}>
           <View
