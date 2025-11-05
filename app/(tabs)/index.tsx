@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { DeviceEventEmitter } from "react-native";
 import {
   Dimensions,
   Image,
@@ -707,6 +708,28 @@ export default function DashboardScreen() {
         console.error("calendar load error", e);
       }
     })();
+  }, []);
+
+  // Listen for cross-tab calendar updates (e.g., completion from Calendars tab)
+  useEffect(() => {
+    const reloadFromStorage = async () => {
+      try {
+        const calStr = await AsyncStorage.getItem("userCalendar");
+        if (!calStr) return;
+        const calendar = JSON.parse(calStr);
+        if (calendar && typeof calendar.plan === "string") {
+          try { calendar.plan = JSON.parse(calendar.plan); } catch {}
+        }
+        setUserCalendar(calendar);
+        if (Array.isArray(calendar.selectedDays)) setSelectedDays(calendar.selectedDays);
+        setCalendarVersion((v) => v + 1);
+      } catch {}
+    };
+    const sub = DeviceEventEmitter.addListener(
+      "userCalendarUpdated",
+      reloadFromStorage
+    );
+    return () => sub.remove();
   }, []);
 
   const persistTraineeSettings = async (next: {
@@ -1980,7 +2003,7 @@ export default function DashboardScreen() {
                     { color: colors.primary },
                   ]}
                 >
-                  {userCalendar ? weeklySummary.minutesExercised : weeklyProgress.minutesExercised}
+                  {userCalendar ? monthlySummary.minutesExercised : weeklyProgress.minutesExercised}
                 </Text>
                 <Text
                   style={[
@@ -1998,7 +2021,7 @@ export default function DashboardScreen() {
                     { color: colors.secondary },
                   ]}
                 >
-                  {userCalendar ? weeklySummary.workoutsCompleted : weeklyProgress.workoutsCompleted}
+                  {userCalendar ? monthlySummary.workoutsCompleted : weeklyProgress.workoutsCompleted}
                 </Text>
                 <Text
                   style={[

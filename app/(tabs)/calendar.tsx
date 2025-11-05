@@ -4,6 +4,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  DeviceEventEmitter,
   Dimensions,
   Image,
   ImageBackground,
@@ -829,6 +830,7 @@ export default function CalendarScreen() {
             await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
           } catch {}
           setUserCalendar(updated);
+          DeviceEventEmitter.emit("userCalendarUpdated");
           try {
             // Persist updated plan to Supabase so it syncs across devices
             await supabase
@@ -1389,6 +1391,7 @@ export default function CalendarScreen() {
           await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
         } catch {}
         setUserCalendar(updated);
+        DeviceEventEmitter.emit("userCalendarUpdated");
         try {
           await supabase
             .from("calendars")
