@@ -173,10 +173,10 @@ export default function CalendarScreen() {
     }
   }, []);
 
-  // One-time cleanup: remove legacy local calendar keys
+  // One-time cleanup: keep active calendar; only remove truly legacy keys
   const clearLegacyLocalCalendar = React.useCallback(async () => {
     try {
-      await AsyncStorage.removeItem("userCalendar");
+      // Do NOT remove "userCalendar" as it is the active selection across tabs
       await AsyncStorage.removeItem("myCalendars");
     } catch {}
   }, []);
@@ -824,6 +824,10 @@ export default function CalendarScreen() {
             calories,
             completedAt: new Date().toISOString(),
           };
+          // Persist locally so other tabs reload the same calendar state
+          try {
+            await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
+          } catch {}
           setUserCalendar(updated);
           try {
             // Persist updated plan to Supabase so it syncs across devices
@@ -1380,6 +1384,10 @@ export default function CalendarScreen() {
         const stats = updated.plan[todayIso].stats;
         updated.plan[todayIso].completed = false;
         delete updated.plan[todayIso].stats;
+        // Persist locally so other tabs reload the same calendar state
+        try {
+          await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
+        } catch {}
         setUserCalendar(updated);
         try {
           await supabase

@@ -85,6 +85,8 @@ export default function DashboardScreen() {
     totalMinutes: number;
     totalCalories: number;
   }>({ totalCompleted: 0, totalMinutes: 0, totalCalories: 0 });
+  // Bump this when plan changes to force recompute of derived summaries
+  const [calendarVersion, setCalendarVersion] = useState(0);
 
   // Derive selected days (Mon..Sun) from a calendar plan if not explicitly stored
   const computeSelectedDaysFromPlan = (plan: Record<string, any> | undefined) => {
@@ -475,7 +477,7 @@ export default function DashboardScreen() {
     // Persist completion
     try {
       if (selectedWorkout && userCalendar) {
-        const updated = { ...userCalendar } as any;
+        const updated = { ...userCalendar, plan: { ...(userCalendar as any).plan } } as any;
         const todayIso = Object.keys(updated.plan || {}).find((iso: string) => {
           const d = new Date(iso);
           const dd = String(d.getDate()).padStart(2, "0");
@@ -493,6 +495,15 @@ export default function DashboardScreen() {
           };
           await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
           setUserCalendar(updated);
+          setCalendarVersion((v) => v + 1);
+
+          // Persist updated plan to Supabase so other tabs/devices see it immediately
+          try {
+            await supabase
+              .from("calendars")
+              .update({ plan: updated.plan })
+              .eq("id", updated.id);
+          } catch {}
 
           // Update progress tracking
           await updateProgress(1, calories, totalMin);
@@ -741,7 +752,7 @@ export default function DashboardScreen() {
       });
     });
     return items;
-  }, [userCalendar]);
+  }, [userCalendar, calendarVersion]);
 
   function inferWorkoutType(muscles: string[]) {
     const m = muscles.join(" ").toLowerCase();
@@ -805,7 +816,7 @@ export default function DashboardScreen() {
   const unmarkCompleted = async (date: string) => {
     try {
       if (!userCalendar) return;
-      const updated = { ...userCalendar } as any;
+      const updated = { ...userCalendar, plan: { ...(userCalendar as any).plan } } as any;
       const todayIso = Object.keys(updated.plan || {}).find((iso: string) => {
         const d = new Date(iso);
         const dd = String(d.getDate()).padStart(2, "0");
@@ -818,6 +829,15 @@ export default function DashboardScreen() {
         delete updated.plan[todayIso].stats;
         await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
         setUserCalendar(updated);
+        setCalendarVersion((v) => v + 1);
+
+        // Persist to Supabase; keep local state as source of truth to avoid stale overwrites
+        try {
+          await supabase
+            .from("calendars")
+            .update({ plan: updated.plan })
+            .eq("id", updated.id);
+        } catch {}
 
         // Decrease progress counters if stats existed
         if (stats) {
@@ -1673,18 +1693,6 @@ export default function DashboardScreen() {
 
   // Build "This Week" minutes per day for the dashboard chart from the active calendar
   const weeklyChart = useMemo(() => {
-    // If calendar has selectedDays, highlight those days regardless of completions
-    const displayDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    if (userCalendar?.selectedDays && Array.isArray(userCalendar.selectedDays)) {
-      const selectedSet = new Set(userCalendar.selectedDays as string[]);
-      // Give selected (used) days full height value 4, and unused days value 1 (quarter height)
-      return displayDays.map((d) => ({
-        day: d,
-        value: selectedSet.has(d) ? 4 : 1,
-        dateKey: undefined as any,
-      }));
-    }
-
     const values = new Array(7).fill(0) as number[];
 
     // Helpers using LOCAL midnights to avoid timezone skew
@@ -1731,7 +1739,7 @@ export default function DashboardScreen() {
       value,
       dateKey: ddmm(weekDates[idx]),
     }));
-  }, [userCalendar]);
+  }, [userCalendar, calendarVersion]);
 
   // Build weekly summary (workouts completed, minutes) from the active calendar only
   const weeklySummary = useMemo(() => {
@@ -1768,7 +1776,7 @@ export default function DashboardScreen() {
     });
 
     return result;
-  }, [userCalendar]);
+  }, [userCalendar, calendarVersion]);
 
   // Monthly summary (for current month) computed from the active calendar only
   const monthlySummary = useMemo(() => {
