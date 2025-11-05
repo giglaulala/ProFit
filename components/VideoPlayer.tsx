@@ -12,6 +12,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { router } from "expo-router";
 import Colors from "../constants/Colors";
 import { WorkoutVideo } from "../constants/WorkoutVideos";
 
@@ -49,22 +50,10 @@ export default function VideoPlayer({
       video.remoteUrl &&
       isYouTubeUrl(video.remoteUrl)
     ) {
-      try {
-        const canOpen = await Linking.canOpenURL(video.remoteUrl);
-        if (canOpen) {
-          await Linking.openURL(video.remoteUrl);
-        } else {
-          Alert.alert(
-            "Cannot Open Video",
-            "Unable to open the video. Please check your internet connection.",
-            [{ text: "OK" }]
-          );
-        }
-      } catch (error) {
-        Alert.alert("Error", "Failed to open video. Please try again.", [
-          { text: "OK" },
-        ]);
-      }
+      router.push({
+        pathname: "/video-webview",
+        params: { url: video.remoteUrl, title: video.title },
+      });
       return;
     }
 
@@ -210,7 +199,7 @@ export default function VideoPlayer({
                   <Text
                     style={[styles.videoInfoText, { color: colors.primary }]}
                   >
-                    Tap to open in browser
+                  Tap to open in app
                   </Text>
                 </View>
               </View>
@@ -283,7 +272,7 @@ export default function VideoPlayer({
                 {video.type === "remote" &&
                 video.remoteUrl &&
                 isYouTubeUrl(video.remoteUrl)
-                  ? "Open in YouTube"
+                  ? "Open in App"
                   : isPlaying
                   ? "Pause Video"
                   : "Play Video"}
