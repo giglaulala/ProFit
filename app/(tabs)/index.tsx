@@ -1716,6 +1716,17 @@ export default function DashboardScreen() {
 
   // Build "This Week" minutes per day for the dashboard chart from the active calendar
   const weeklyChart = useMemo(() => {
+    // If calendar has selectedDays, show them prominently so the graph is never blank
+    const displayDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    if (userCalendar?.selectedDays && Array.isArray(userCalendar.selectedDays)) {
+      const selectedSet = new Set(userCalendar.selectedDays as string[]);
+      return displayDays.map((d) => ({
+        day: d,
+        value: selectedSet.has(d) ? 4 : 1,
+        dateKey: undefined as any,
+      }));
+    }
+
     const values = new Array(7).fill(0) as number[];
 
     // Helpers using LOCAL midnights to avoid timezone skew
