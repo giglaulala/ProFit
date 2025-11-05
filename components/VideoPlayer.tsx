@@ -185,23 +185,7 @@ export default function VideoPlayer({
                 <Text style={[styles.duration, { color: colors.text }]}>
                   {video.duration}
                 </Text>
-                <View
-                  style={[
-                    styles.videoInfo,
-                    { backgroundColor: colors.primary + "20" },
-                  ]}
-                >
-                  <Ionicons
-                    name="globe-outline"
-                    size={16}
-                    color={colors.primary}
-                  />
-                  <Text
-                    style={[styles.videoInfoText, { color: colors.primary }]}
-                  >
-                  Tap to open in app
-                  </Text>
-                </View>
+                
               </View>
             )}
           </View>
