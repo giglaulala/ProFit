@@ -607,6 +607,12 @@ export default function DashboardScreen() {
         ]);
         if (calStr) {
           const calendar = JSON.parse(calStr);
+          // Ensure plan is parsed if stored as a string
+          if (calendar && typeof calendar.plan === "string") {
+            try {
+              calendar.plan = JSON.parse(calendar.plan);
+            } catch {}
+          }
           // If selectedDays wasn't persisted (older calendars), derive from plan
           if (!Array.isArray(calendar.selectedDays) && calendar.plan) {
             const derived = computeSelectedDaysFromPlan(calendar.plan);
@@ -1455,14 +1461,26 @@ export default function DashboardScreen() {
       const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM format
       let calendarWorkoutCount = 0;
 
-      if (userCalendar?.plan) {
-        // Count only workouts in the current month
-        Object.values(userCalendar.plan).forEach((dayPlan: any) => {
-          const dayDate = new Date(dayPlan.date);
-          const dayMonth = dayDate.toISOString().substring(0, 7);
-          if (dayMonth === currentMonth) {
-            calendarWorkoutCount++;
+      // Prefer the active calendar from state; fall back to AsyncStorage to avoid race conditions
+      let planSource: any = userCalendar?.plan;
+      if (!planSource) {
+        try {
+          const calStr = await AsyncStorage.getItem("userCalendar");
+          if (calStr) {
+            const parsed = JSON.parse(calStr);
+            planSource = parsed?.plan;
+            if (typeof planSource === "string") {
+              try { planSource = JSON.parse(planSource); } catch { planSource = {}; }
+            }
           }
+        } catch {}
+      }
+
+      if (planSource && typeof planSource === "object") {
+        Object.values(planSource).forEach((dayPlan: any) => {
+          if (!dayPlan || !dayPlan.date) return;
+          const dayMonth = String(dayPlan.date).slice(0, 7);
+          if (dayMonth === currentMonth) calendarWorkoutCount++;
         });
       }
 
@@ -1485,26 +1503,12 @@ export default function DashboardScreen() {
       if (data && data.length > 0) {
         const goals = {
           workoutGoal:
-            calendarWorkoutCount > 0
-              ? calendarWorkoutCount
-              : data[0].workout_goal,
+            calendarWorkoutCount > 0 ? calendarWorkoutCount : data[0].workout_goal,
           calorieGoal: data[0].calorie_goal,
           minuteGoal: data[0].minute_goal,
         };
 
         setMonthlyGoals(goals);
-
-        // Update the database with the calculated workout goal if it's different
-        if (
-          calendarWorkoutCount > 0 &&
-          calendarWorkoutCount !== data[0].workout_goal
-        ) {
-          await supabase
-            .from("monthly_goals")
-            .update({ workout_goal: calendarWorkoutCount })
-            .eq("user_id", userId)
-            .eq("month_year", currentMonth);
-        }
       }
     } catch (error) {
       console.error("Error loading monthly goals:", error);
@@ -1625,6 +1629,12 @@ export default function DashboardScreen() {
               );
               setUserCalendar(sanitized);
             } else {
+              // Normalize plan type
+              if (calendar && typeof calendar.plan === "string") {
+                try {
+                  calendar.plan = JSON.parse(calendar.plan);
+                } catch {}
+              }
               // If selectedDays missing, derive from plan and persist
               if (!Array.isArray(calendar.selectedDays) && calendar.plan) {
                 const derived = computeSelectedDaysFromPlan(calendar.plan);
@@ -1721,6 +1731,82 @@ export default function DashboardScreen() {
       value,
       dateKey: ddmm(weekDates[idx]),
     }));
+  }, [userCalendar]);
+
+  // Build weekly summary (workouts completed, minutes) from the active calendar only
+  const weeklySummary = useMemo(() => {
+    const result = { workoutsCompleted: 0, minutesExercised: 0 };
+    const planObj = (userCalendar?.plan ?? {}) as Record<string, any>;
+    if (!planObj || typeof planObj !== "object") return result;
+
+    // Same 7-day window as chart: last 7 days ending today (local)
+    const toLocalMidnight = (d: Date) =>
+      new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const now = new Date();
+    const today = toLocalMidnight(now);
+    const start = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() - 6
+    );
+    const startMs = start.getTime();
+    const endMs = today.getTime();
+
+    Object.values(planObj).forEach((p: any) => {
+      if (!(p && p.date)) return;
+      const parts = String(p.date).slice(0, 10).split("-");
+      if (parts.length !== 3) return;
+      const y = Number(parts[0]);
+      const m = Number(parts[1]);
+      const d = Number(parts[2]);
+      const entry = new Date(y, m - 1, d);
+      const t = entry.getTime();
+      if (t >= startMs && t <= endMs && p.completed) {
+        result.workoutsCompleted += 1;
+        if (p.stats?.minutes) result.minutesExercised += Number(p.stats.minutes) || 0;
+      }
+    });
+
+    return result;
+  }, [userCalendar]);
+
+  // Monthly summary (for current month) computed from the active calendar only
+  const monthlySummary = useMemo(() => {
+    const result = { workoutsCompleted: 0, minutesExercised: 0 };
+    const planObj = (userCalendar?.plan ?? {}) as Record<string, any>;
+    if (!planObj || typeof planObj !== "object") return result;
+
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`; // YYYY-MM
+
+    Object.values(planObj).forEach((p: any) => {
+      if (!(p && p.date)) return;
+      const monthKey = String(p.date).slice(0, 7);
+      if (monthKey !== currentMonthKey) return;
+      if (p.completed) {
+        result.workoutsCompleted += 1;
+        if (p.stats?.minutes) result.minutesExercised += Number(p.stats.minutes) || 0;
+      }
+    });
+
+    return result;
+  }, [userCalendar]);
+
+  // Target workouts for this month derived from the active calendar (no DB fallback)
+  const monthlyTargetFromCalendar = useMemo(() => {
+    if (!userCalendar || !userCalendar.plan) return 0;
+    const planObj = userCalendar.plan as Record<string, any>;
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(
+      now.getMonth() + 1
+    ).padStart(2, "0")}`;
+    let count = 0;
+    Object.values(planObj).forEach((p: any) => {
+      if (!p || !p.date) return;
+      const monthKey = String(p.date).slice(0, 7);
+      if (monthKey === currentMonthKey) count += 1;
+    });
+    return count;
   }, [userCalendar]);
 
   return (
@@ -1886,7 +1972,7 @@ export default function DashboardScreen() {
                     { color: colors.primary },
                   ]}
                 >
-                  {weeklyProgress.minutesExercised}
+                  {userCalendar ? weeklySummary.minutesExercised : weeklyProgress.minutesExercised}
                 </Text>
                 <Text
                   style={[
@@ -1904,7 +1990,7 @@ export default function DashboardScreen() {
                     { color: colors.secondary },
                   ]}
                 >
-                  {weeklyProgress.workoutsCompleted}
+                  {userCalendar ? weeklySummary.workoutsCompleted : weeklyProgress.workoutsCompleted}
                 </Text>
                 <Text
                   style={[
@@ -1927,13 +2013,19 @@ export default function DashboardScreen() {
           {[
             {
               title: t("dashboard.workouts"),
-              current: monthlyProgress.workoutsCompleted,
-              target: monthlyGoals.workoutGoal,
+              current: userCalendar
+                ? monthlySummary.workoutsCompleted
+                : monthlyProgress.workoutsCompleted,
+              target: userCalendar
+                ? monthlyTargetFromCalendar
+                : monthlyGoals.workoutGoal,
               icon: "fitness",
             },
             {
               title: t("dashboard.minutes"),
-              current: monthlyProgress.minutesExercised,
+              current: userCalendar
+                ? monthlySummary.minutesExercised
+                : monthlyProgress.minutesExercised,
               target: monthlyGoals.minuteGoal,
               icon: "time",
             },
