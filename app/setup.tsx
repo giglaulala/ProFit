@@ -193,37 +193,76 @@ const createCalendarFromSetup = async (
       (workoutGoals.find((g) => g.id === goal)?.title as string) || "Personalized Plan";
     const finalTitle = `${fallbackTitle} Plan`;
 
-    const { error } = await supabase.from("calendars").insert({
+    console.log("Creating calendar in Supabase:", {
       id: cal.id,
       owner: userId,
       title: finalTitle,
-      plan: cal.plan,
       goal: cal.goal,
       level: cal.level,
+      planKeys: Object.keys(cal.plan).length,
     });
+
+    // Insert calendar into Supabase
+    const { data: insertedData, error } = await supabase
+      .from("calendars")
+      .insert({
+        id: cal.id,
+        owner: userId,
+        title: finalTitle,
+        plan: cal.plan,
+        goal: cal.goal,
+        level: cal.level,
+      })
+      .select()
+      .single();
     
-    if (error && !String(error.message || "").includes("duplicate")) {
-      throw error;
+    if (error) {
+      // Log the full error for debugging
+      console.error("Supabase calendar insert error:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+      
+      // Only throw if it's not a duplicate (which is okay)
+      if (!String(error.message || "").includes("duplicate")) {
+        throw new Error(`Failed to save calendar to database: ${error.message}`);
+      } else {
+        console.log("Calendar already exists (duplicate), continuing...");
+      }
+    } else {
+      console.log("Calendar successfully saved to Supabase:", insertedData?.id);
+    }
+
+    // Verify the calendar was saved by fetching it back
+    const { data: verifyData, error: verifyError } = await supabase
+      .from("calendars")
+      .select("id, title, plan, owner, goal, level")
+      .eq("id", cal.id)
+      .eq("owner", userId)
+      .single();
+
+    if (verifyError) {
+      console.warn("Warning: Could not verify calendar was saved:", verifyError.message);
+    } else if (verifyData) {
+      console.log("Calendar verified in Supabase:", verifyData.id);
     }
 
     const calWithTitle = { ...cal, title: finalTitle };
-    await AsyncStorage.setItem("userCalendar", JSON.stringify(calWithTitle));
-    
-    // Track locally so it appears in the dropdown filter
-    try {
-      const key = "myCalendars";
-      const s = await AsyncStorage.getItem(key);
-      const ids = s ? (JSON.parse(s) as string[]) : [];
-      if (!ids.includes(calWithTitle.id)) {
-        ids.push(calWithTitle.id);
-        await AsyncStorage.setItem(key, JSON.stringify(ids));
-      }
-    } catch {}
+    // No local persistence; calendar tab will fetch from Supabase
 
     // Set flag to show greeting in calendar tab
     await AsyncStorage.setItem("showCalendarGreeting", "true");
+    console.log("Calendar creation process completed successfully");
   } catch (e: any) {
-    console.error("Error creating calendar:", e.message || "Failed to create calendar");
+    console.error("Error creating calendar:", {
+      message: e.message,
+      stack: e.stack,
+      error: e,
+    });
+    // Don't throw - we don't want to block the user from proceeding
+    // but log the error so we can debug
   }
 };
 
@@ -326,7 +365,8 @@ export default function SetupScreen() {
         const { data: userInfo } = await supabase.auth.getUser();
         const userId = userInfo.user?.id;
         if (userId) {
-          await supabase.from("trainee_settings").upsert(
+          // Save trainee settings first
+          const { error: settingsError } = await supabase.from("trainee_settings").upsert(
             {
               id: userId,
               goal: setupData.goal,
@@ -338,20 +378,59 @@ export default function SetupScreen() {
             { onConflict: "id" }
           );
 
-          // Create calendar based on user inputs
-          await createCalendarFromSetup(
-            selectedGoal as any,
-            selectedWeekdays,
-            userId
+          if (settingsError) {
+            console.error("Error saving trainee settings:", settingsError);
+          }
+
+          // Create calendar based on user inputs - wait for it to complete
+          console.log("Starting calendar creation process...");
+          try {
+            await createCalendarFromSetup(
+              selectedGoal as any,
+              selectedWeekdays,
+              userId
+            );
+            console.log("Calendar creation process finished");
+            
+            // Small delay to ensure database write is fully committed
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } catch (calendarError: any) {
+            console.error("Calendar creation failed:", calendarError);
+            // Don't block user from proceeding, but log the error
+            // The calendar tab will try to load from Supabase as fallback
+          }
+        } else {
+          console.error("No user ID found, cannot create calendar");
+          Alert.alert(
+            "Warning",
+            "Could not create calendar. Please create one manually from the Calendar tab."
           );
         }
       } catch (error) {
         console.error("Error saving setup data:", error);
+        // Still allow user to proceed - they can create calendar manually
       }
 
-      // Navigate to main app after brief loader
+      // Verify calendar was saved before navigating
+      try {
+        const verifyCal = await AsyncStorage.getItem("userCalendar");
+        if (verifyCal) {
+          const parsed = JSON.parse(verifyCal);
+          console.log("Verification before navigation - Calendar in AsyncStorage:", {
+            id: parsed.id,
+            hasPlan: !!parsed.plan,
+            planKeys: parsed.plan ? Object.keys(parsed.plan).length : 0,
+          });
+        } else {
+          console.warn("WARNING: Calendar not found in AsyncStorage before navigation!");
+        }
+      } catch (e) {
+        console.error("Error verifying calendar before navigation:", e);
+      }
+
+      // Navigate to Calendar tab after brief loader so the new plan is visible immediately
       setTimeout(() => {
-        router.replace("/(tabs)");
+        router.replace("/(tabs)/calendar");
       }, 1500); // 1.5 seconds loader
     }
   };

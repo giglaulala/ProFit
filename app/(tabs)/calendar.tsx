@@ -99,28 +99,7 @@ export default function CalendarScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const createSectionYRef = useRef(0);
   const router = useRouter();
-  // Local tracking of calendars created via this app instance
-  const MY_CAL_IDS_KEY = "myCalendars";
-  const getMyCalendarIds = async (): Promise<string[]> => {
-    try {
-      const s = await AsyncStorage.getItem(MY_CAL_IDS_KEY);
-      return s ? (JSON.parse(s) as string[]) : [];
-    } catch {
-      return [];
-    }
-  };
-  const addMyCalendarId = async (id: string) => {
-    const ids = await getMyCalendarIds();
-    if (!ids.includes(id)) {
-      const next = [...ids, id];
-      await AsyncStorage.setItem(MY_CAL_IDS_KEY, JSON.stringify(next));
-    }
-  };
-  const removeMyCalendarId = async (id: string) => {
-    const ids = await getMyCalendarIds();
-    const next = ids.filter((x) => x !== id);
-    await AsyncStorage.setItem(MY_CAL_IDS_KEY, JSON.stringify(next));
-  };
+  // Deprecated: local calendar tracking removed; rely solely on Supabase
 
   const loadUserCalendars = async () => {
     try {
@@ -130,55 +109,30 @@ export default function CalendarScreen() {
         setCalendars([]);
         return;
       }
-      const myIds = await getMyCalendarIds();
-      const allowedIds = new Set(myIds);
-      // If nothing tracked locally yet, only allow the current active calendar (if any)
-      const onlyCurrentId =
-        !myIds.length && userCalendar?.id ? userCalendar.id : null;
       const { data, error } = await supabase
         .from("calendars")
         .select("id, title, plan, owner, goal, level, created_at")
         .eq("owner", owner)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      let raw = (data || []).filter((c) => c && c.owner === owner);
-      raw = raw
-        .filter((c) => {
-          if (allowedIds.size > 0) return allowedIds.has(c.id);
-          if (onlyCurrentId) return c.id === onlyCurrentId;
-          return false;
-        })
-        .map((c) => ({
-          id: c.id,
-          title: c.title,
-          plan: c.plan,
-          owner: c.owner,
-          goal: c.goal,
-          level: c.level,
-          shareCode: c.id,
-          created_at: c.created_at,
-        }));
-      const seenIds = new Set<string>();
-      const deduped: any[] = [];
-      for (const c of raw) {
-        if (seenIds.has(c.id)) continue;
-        seenIds.add(c.id);
-        deduped.push(c);
-      }
-      if (deduped.length === 0 && userCalendar?.id) {
-        setCalendars([
-          {
-            id: userCalendar.id,
-            title: userCalendar.title || userCalendar.id,
-            shareCode: userCalendar.id,
-            owner,
-            plan: {},
-            created_at: new Date().toISOString(),
-          },
-        ]);
-      } else {
-        setCalendars(deduped);
-      }
+      const seen = new Set<string>();
+      const list = (data || []).reduce<any[]>((acc, c) => {
+        if (!seen.has(c.id)) {
+          seen.add(c.id);
+          acc.push({
+            id: c.id,
+            title: c.title,
+            plan: c.plan,
+            owner: c.owner,
+            goal: c.goal,
+            level: c.level,
+            shareCode: c.id,
+            created_at: c.created_at,
+          });
+        }
+        return acc;
+      }, []);
+      setCalendars(list);
     } catch (e) {
       // noop
     }
@@ -197,22 +151,64 @@ export default function CalendarScreen() {
     }
   }, []);
 
+  // One-time cleanup: remove legacy local calendar keys
+  const clearLegacyLocalCalendar = React.useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem("userCalendar");
+      await AsyncStorage.removeItem("myCalendars");
+    } catch {}
+  }, []);
+
   useEffect(() => {
+    clearLegacyLocalCalendar();
     loadUserCalendars();
     checkCalendarGreeting();
-  }, [checkCalendarGreeting]);
+  }, [checkCalendarGreeting, clearLegacyLocalCalendar]);
 
   // Refresh calendars list when returning to this tab
   useFocusEffect(
     React.useCallback(() => {
+      console.log("useFocusEffect - Calendar tab focused, loading calendar...");
       loadUserCalendars();
       checkCalendarGreeting();
-      // Reload userCalendar from AsyncStorage to ensure newly created calendar is shown
+      // Reload userCalendar from AsyncStorage or Supabase to ensure newly created calendar is shown
       (async () => {
         try {
+          console.log("useFocusEffect - Checking AsyncStorage for calendar...");
           const calStr = await AsyncStorage.getItem("userCalendar");
+          console.log("useFocusEffect - AsyncStorage result:", {
+            hasCalendar: !!calStr,
+            calendarLength: calStr ? calStr.length : 0,
+          });
+
           if (calStr) {
             const calendar = JSON.parse(calStr);
+
+            console.log("useFocusEffect - Loaded calendar from AsyncStorage:", {
+              id: calendar.id,
+              hasPlan: !!calendar.plan,
+              planType: typeof calendar.plan,
+              planKeys:
+                calendar.plan && typeof calendar.plan === "object"
+                  ? Object.keys(calendar.plan).length
+                  : "N/A",
+            });
+
+            // Parse plan if it's a string
+            if (typeof calendar.plan === "string") {
+              try {
+                calendar.plan = JSON.parse(calendar.plan);
+                console.log("useFocusEffect - Parsed plan from string");
+              } catch (e) {
+                console.error("useFocusEffect - Failed to parse plan:", e);
+                calendar.plan = {};
+              }
+            }
+
+            console.log("useFocusEffect - Setting userCalendar state with:", {
+              id: calendar.id,
+              planKeys: calendar.plan ? Object.keys(calendar.plan).length : 0,
+            });
             setUserCalendar(calendar);
             if (calendar.selectedDays) {
               setSelectedDays(calendar.selectedDays);
@@ -220,9 +216,101 @@ export default function CalendarScreen() {
             if (calendar.goal) {
               setSelectedWorkoutGoal(calendar.goal);
             }
+            console.log("useFocusEffect - userCalendar state updated");
+          } else {
+            // If no calendar in AsyncStorage, try to load the most recent one from Supabase
+            const { data: userInfo } = await supabase.auth.getUser();
+            const userId = userInfo.user?.id;
+            if (userId) {
+              const { data: calendars, error } = await supabase
+                .from("calendars")
+                .select("id, title, plan, owner, goal, level, created_at")
+                .eq("owner", userId)
+                .order("created_at", { ascending: false })
+                .limit(1);
+
+              if (!error && calendars && calendars.length > 0) {
+                const latestCalendar = calendars[0];
+
+                // Debug: Log what we got from Supabase in useFocusEffect
+                console.log("useFocusEffect: Loaded calendar from Supabase:", {
+                  id: latestCalendar.id,
+                  hasPlan: !!latestCalendar.plan,
+                  planType: typeof latestCalendar.plan,
+                  planIsString: typeof latestCalendar.plan === "string",
+                  planKeys:
+                    latestCalendar.plan &&
+                    typeof latestCalendar.plan === "object"
+                      ? Object.keys(latestCalendar.plan).length
+                      : "N/A",
+                });
+
+                // Parse plan if it's a string (Supabase JSONB fields might be returned as strings)
+                let planData = latestCalendar.plan;
+                if (typeof planData === "string") {
+                  try {
+                    planData = JSON.parse(planData);
+                    console.log(
+                      "useFocusEffect: Parsed plan from string, keys:",
+                      Object.keys(planData).length
+                    );
+                  } catch (e) {
+                    console.error(
+                      "useFocusEffect: Failed to parse plan as JSON:",
+                      e
+                    );
+                    planData = {};
+                  }
+                }
+
+                const calendarData = {
+                  id: latestCalendar.id,
+                  title: latestCalendar.title,
+                  plan: planData || {},
+                  owner: latestCalendar.owner,
+                  goal: latestCalendar.goal,
+                  level: latestCalendar.level,
+                  shareCode: latestCalendar.id,
+                };
+
+                // Save to AsyncStorage for future loads
+                await AsyncStorage.setItem(
+                  "userCalendar",
+                  JSON.stringify(calendarData)
+                );
+
+                // Add to myCalendars list
+                try {
+                  const key = "myCalendars";
+                  const s = await AsyncStorage.getItem(key);
+                  const ids = s ? (JSON.parse(s) as string[]) : [];
+                  if (!ids.includes(calendarData.id)) {
+                    ids.push(calendarData.id);
+                    await AsyncStorage.setItem(key, JSON.stringify(ids));
+                  }
+                } catch {}
+
+                console.log(
+                  "useFocusEffect - Setting userCalendar from Supabase with:",
+                  {
+                    id: calendarData.id,
+                    planKeys: calendarData.plan
+                      ? Object.keys(calendarData.plan).length
+                      : 0,
+                  }
+                );
+                setUserCalendar(calendarData);
+                if (calendarData.goal) {
+                  setSelectedWorkoutGoal(calendarData.goal);
+                }
+                console.log(
+                  "useFocusEffect - userCalendar state updated from Supabase"
+                );
+              }
+            }
           }
         } catch (e) {
-          // noop
+          console.error("useFocusEffect - Error loading calendar:", e);
         }
       })();
       return () => {};
@@ -706,9 +794,14 @@ export default function CalendarScreen() {
             calories,
             completedAt: new Date().toISOString(),
           };
-          await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
           setUserCalendar(updated);
-          setUserCalendar(updated);
+          try {
+            // Persist updated plan to Supabase so it syncs across devices
+            await supabase
+              .from("calendars")
+              .update({ plan: updated.plan })
+              .eq("id", updated.id);
+          } catch {}
 
           // Update progress tracking
           await updateProgress(1, calories, totalMin);
@@ -828,15 +921,59 @@ export default function CalendarScreen() {
   };
 
   useEffect(() => {
+    console.log("=== Calendar tab useEffect - STARTING ===");
     (async () => {
       try {
+        console.log(
+          "Calendar tab useEffect - Step 1: Checking AsyncStorage..."
+        );
         const [calStr, mapStr] = await Promise.all([
           AsyncStorage.getItem("userCalendar"),
           AsyncStorage.getItem("calendarShareMap"),
         ]);
+        console.log("Calendar tab useEffect - Step 2: AsyncStorage result:", {
+          hasCalendar: !!calStr,
+          calendarLength: calStr ? calStr.length : 0,
+          calendarPreview: calStr ? calStr.substring(0, 200) : "null",
+        });
         if (calStr) {
           const calendar = JSON.parse(calStr);
+
+          // Debug: Log what we loaded from AsyncStorage
+          console.log("Loaded calendar from AsyncStorage:", {
+            id: calendar.id,
+            hasPlan: !!calendar.plan,
+            planType: typeof calendar.plan,
+            planIsString: typeof calendar.plan === "string",
+            planKeys:
+              calendar.plan && typeof calendar.plan === "object"
+                ? Object.keys(calendar.plan).length
+                : "N/A",
+            planSample:
+              calendar.plan && typeof calendar.plan === "object"
+                ? Object.keys(calendar.plan).slice(0, 3)
+                : calendar.plan?.substring?.(0, 100),
+          });
+
+          // Parse plan if it's a string (shouldn't happen from AsyncStorage, but just in case)
+          if (typeof calendar.plan === "string") {
+            try {
+              calendar.plan = JSON.parse(calendar.plan);
+              console.log("Parsed plan from AsyncStorage string");
+            } catch (e) {
+              console.error("Failed to parse plan from AsyncStorage:", e);
+              calendar.plan = {};
+            }
+          }
+
+          console.log("Setting userCalendar state with:", {
+            id: calendar.id,
+            planKeys: calendar.plan ? Object.keys(calendar.plan).length : 0,
+            planType: typeof calendar.plan,
+          });
           setUserCalendar(calendar);
+          console.log("userCalendar state set, triggering re-render");
+
           // Update selectedDays from the loaded calendar
           if (calendar.selectedDays) {
             setSelectedDays(calendar.selectedDays);
@@ -845,6 +982,96 @@ export default function CalendarScreen() {
           if (calendar.goal) {
             setSelectedWorkoutGoal(calendar.goal);
             goalInitializedFromCalendarRef.current = true;
+          }
+        } else {
+          // If no calendar in AsyncStorage, try to load the most recent one from Supabase
+          const { data: userInfo } = await supabase.auth.getUser();
+          const userId = userInfo.user?.id;
+          if (userId) {
+            const { data: calendars, error } = await supabase
+              .from("calendars")
+              .select("id, title, plan, owner, goal, level, created_at")
+              .eq("owner", userId)
+              .order("created_at", { ascending: false })
+              .limit(1);
+
+            if (!error && calendars && calendars.length > 0) {
+              const latestCalendar = calendars[0];
+
+              // Debug: Log what we got from Supabase
+              console.log("Loaded calendar from Supabase:", {
+                id: latestCalendar.id,
+                hasPlan: !!latestCalendar.plan,
+                planType: typeof latestCalendar.plan,
+                planIsString: typeof latestCalendar.plan === "string",
+                planKeys:
+                  latestCalendar.plan && typeof latestCalendar.plan === "object"
+                    ? Object.keys(latestCalendar.plan).length
+                    : "N/A",
+                planSample:
+                  latestCalendar.plan && typeof latestCalendar.plan === "object"
+                    ? Object.keys(latestCalendar.plan).slice(0, 3)
+                    : latestCalendar.plan?.substring?.(0, 100),
+              });
+
+              // Parse plan if it's a string (Supabase JSONB fields might be returned as strings)
+              let planData = latestCalendar.plan;
+              if (typeof planData === "string") {
+                try {
+                  planData = JSON.parse(planData);
+                  console.log(
+                    "Parsed plan from string, keys:",
+                    Object.keys(planData).length
+                  );
+                } catch (e) {
+                  console.error("Failed to parse plan as JSON:", e);
+                  planData = {};
+                }
+              }
+
+              const calendarData = {
+                id: latestCalendar.id,
+                title: latestCalendar.title,
+                plan: planData || {},
+                owner: latestCalendar.owner,
+                goal: latestCalendar.goal,
+                level: latestCalendar.level,
+                shareCode: latestCalendar.id,
+              };
+
+              // Save to AsyncStorage for future loads
+              await AsyncStorage.setItem(
+                "userCalendar",
+                JSON.stringify(calendarData)
+              );
+
+              // Add to myCalendars list
+              try {
+                const key = "myCalendars";
+                const s = await AsyncStorage.getItem(key);
+                const ids = s ? (JSON.parse(s) as string[]) : [];
+                if (!ids.includes(calendarData.id)) {
+                  ids.push(calendarData.id);
+                  await AsyncStorage.setItem(key, JSON.stringify(ids));
+                }
+              } catch {}
+
+              console.log("Setting userCalendar from Supabase with:", {
+                id: calendarData.id,
+                planKeys: calendarData.plan
+                  ? Object.keys(calendarData.plan).length
+                  : 0,
+              });
+              setUserCalendar(calendarData);
+              console.log(
+                "userCalendar state set from Supabase, triggering re-render"
+              );
+
+              if (calendarData.goal) {
+                setSelectedWorkoutGoal(calendarData.goal);
+                goalInitializedFromCalendarRef.current = true;
+              }
+            }
           }
         }
         if (mapStr) setCalendarMap(JSON.parse(mapStr));
@@ -892,18 +1119,69 @@ export default function CalendarScreen() {
             setFirstName(profile.first_name);
           }
 
-          // Load monthly goals and progress
+          // Load monthly goals and progress AFTER calendar is loaded
+          // This ensures userCalendar state is set before loadMonthlyGoals runs
           await Promise.all([
             loadMonthlyGoals(),
             loadMonthlyProgress(),
             loadWeeklyProgress(),
           ]);
         }
+        console.log("=== Calendar tab useEffect - COMPLETED ===");
       } catch (e) {
-        console.error("calendar load error", e);
+        console.error("=== Calendar tab useEffect - ERROR ===", e);
+        console.error("Error details:", {
+          message: e instanceof Error ? e.message : String(e),
+          stack: e instanceof Error ? e.stack : undefined,
+        });
       }
     })();
   }, []);
+
+  // Separate useEffect to reload calendar when it's missing
+  // This is a fallback to ensure calendar loads even if main useEffect misses it
+  useEffect(() => {
+    console.log(
+      "Secondary calendar load useEffect - userCalendar:",
+      !!userCalendar
+    );
+    if (!userCalendar) {
+      console.log(
+        "Secondary load - userCalendar is null, checking AsyncStorage..."
+      );
+      (async () => {
+        try {
+          const calStr = await AsyncStorage.getItem("userCalendar");
+          if (calStr) {
+            console.log("Secondary load - Found calendar in AsyncStorage!");
+            const calendar = JSON.parse(calStr);
+
+            // Parse plan if needed
+            if (typeof calendar.plan === "string") {
+              try {
+                calendar.plan = JSON.parse(calendar.plan);
+              } catch (e) {
+                calendar.plan = {};
+              }
+            }
+
+            console.log("Secondary load - Setting userCalendar:", {
+              id: calendar.id,
+              planKeys: calendar.plan ? Object.keys(calendar.plan).length : 0,
+            });
+            setUserCalendar(calendar);
+            if (calendar.goal) {
+              setSelectedWorkoutGoal(calendar.goal);
+            }
+          } else {
+            console.log("Secondary load - No calendar in AsyncStorage");
+          }
+        } catch (e) {
+          console.error("Secondary calendar load error:", e);
+        }
+      })();
+    }
+  }, []); // Run once on mount as fallback
 
   const persistTraineeSettings = async (next: {
     weight?: number;
@@ -931,23 +1209,68 @@ export default function CalendarScreen() {
   };
 
   const uiCalendarDays: WorkoutDay[] = useMemo(() => {
-    if (!userCalendar) return roadmapCalendar;
+    console.log("uiCalendarDays useMemo - userCalendar state:", {
+      exists: !!userCalendar,
+      id: userCalendar?.id,
+      hasPlan: !!userCalendar?.plan,
+    });
+
+    if (!userCalendar) {
+      console.log("No userCalendar, using roadmapCalendar");
+      return roadmapCalendar;
+    }
+
+    // Debug: Log calendar structure
+    console.log("userCalendar structure:", {
+      id: userCalendar.id,
+      hasPlan: !!userCalendar.plan,
+      planType: typeof userCalendar.plan,
+      planIsArray: Array.isArray(userCalendar.plan),
+      planKeys: userCalendar.plan ? Object.keys(userCalendar.plan).length : 0,
+      planSample: userCalendar.plan
+        ? Object.keys(userCalendar.plan).slice(0, 3)
+        : [],
+      fullPlan: userCalendar.plan, // Log full plan for debugging
+    });
+
     // Adapt plan to WorkoutDay
     const items: WorkoutDay[] = [];
-    Object.values(userCalendar.plan || {}).forEach((dp: any) => {
-      const d = new Date(dp.date);
-      const dd = String(d.getDate()).padStart(2, "0");
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const first = dp.entries?.[0];
-      const type = inferWorkoutType(first?.muscleGroups || []);
-      items.push({
-        date: `${dd}.${mm}`,
-        workout: first?.name || "Workout",
-        type: type as any,
-        completed: Boolean(dp.completed),
-      });
+    const plan = userCalendar.plan || {};
+
+    // Handle both object and array formats
+    const planEntries = Array.isArray(plan) ? plan : Object.values(plan);
+
+    console.log("Processing plan entries:", planEntries.length);
+
+    planEntries.forEach((dp: any) => {
+      if (!dp || !dp.date) {
+        console.warn("Invalid plan entry:", dp);
+        return;
+      }
+
+      try {
+        const d = new Date(dp.date);
+        if (isNaN(d.getTime())) {
+          console.warn("Invalid date:", dp.date);
+          return;
+        }
+        const dd = String(d.getDate()).padStart(2, "0");
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const first = dp.entries?.[0];
+        const type = inferWorkoutType(first?.muscleGroups || []);
+        items.push({
+          date: `${dd}.${mm}`,
+          workout: first?.name || "Workout",
+          type: type as any,
+          completed: Boolean(dp.completed),
+        });
+      } catch (e) {
+        console.warn("Error processing plan entry:", e, dp);
+      }
     });
-    return items;
+
+    console.log("Converted to workout days:", items.length);
+    return items.length > 0 ? items : roadmapCalendar;
   }, [userCalendar]);
 
   function inferWorkoutType(muscles: string[]) {
@@ -1027,8 +1350,13 @@ export default function CalendarScreen() {
         const stats = updated.plan[todayIso].stats;
         updated.plan[todayIso].completed = false;
         delete updated.plan[todayIso].stats;
-        await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
         setUserCalendar(updated);
+        try {
+          await supabase
+            .from("calendars")
+            .update({ plan: updated.plan })
+            .eq("id", updated.id);
+        } catch {}
 
         // Decrease progress counters if stats existed
         if (stats) {
@@ -1576,7 +1904,6 @@ export default function CalendarScreen() {
         goal: data.goal,
         level: data.level,
       };
-      await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
       setUserCalendar(cal);
       if (cal.goal) setSelectedWorkoutGoal(cal.goal);
       if (cal.level) setLevel(cal.level);
@@ -1611,9 +1938,7 @@ export default function CalendarScreen() {
         throw error;
       }
       const calWithTitle = { ...cal, title: selectedGoalTitle };
-      await AsyncStorage.setItem("userCalendar", JSON.stringify(calWithTitle));
       setUserCalendar(calWithTitle);
-      await addMyCalendarId(calWithTitle.id);
       // Refresh calendars list and set newly created as active in memory list
       await loadUserCalendars();
 
@@ -1675,6 +2000,40 @@ export default function CalendarScreen() {
   // Monthly Goals Functions
   const loadMonthlyGoals = async () => {
     try {
+      console.log("loadMonthlyGoals - STARTING, userCalendar:", {
+        exists: !!userCalendar,
+        hasPlan: !!userCalendar?.plan,
+        planKeys: userCalendar?.plan
+          ? Object.keys(userCalendar.plan).length
+          : 0,
+      });
+
+      // If userCalendar is null, try to load it from AsyncStorage first
+      if (!userCalendar) {
+        console.log(
+          "loadMonthlyGoals - userCalendar is null, loading from AsyncStorage..."
+        );
+        try {
+          const calStr = await AsyncStorage.getItem("userCalendar");
+          if (calStr) {
+            const calendar = JSON.parse(calStr);
+            if (typeof calendar.plan === "string") {
+              calendar.plan = JSON.parse(calendar.plan);
+            }
+            console.log(
+              "loadMonthlyGoals - Loaded calendar from AsyncStorage:",
+              {
+                id: calendar.id,
+                planKeys: calendar.plan ? Object.keys(calendar.plan).length : 0,
+              }
+            );
+            setUserCalendar(calendar);
+          }
+        } catch (e) {
+          console.error("loadMonthlyGoals - Error loading calendar:", e);
+        }
+      }
+
       const { data: userInfo } = await supabase.auth.getUser();
       const userId = userInfo.user?.id;
       if (!userId) return;
@@ -1683,9 +2042,51 @@ export default function CalendarScreen() {
       const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM format
       let calendarWorkoutCount = 0;
 
-      if (userCalendar?.plan) {
+      // Always try to load from AsyncStorage if userCalendar is null or missing plan
+      let currentCalendar = userCalendar;
+      if (
+        !currentCalendar ||
+        !currentCalendar.plan ||
+        Object.keys(currentCalendar.plan || {}).length === 0
+      ) {
+        console.log(
+          "loadMonthlyGoals - Loading calendar from AsyncStorage as fallback..."
+        );
+        try {
+          const calStr = await AsyncStorage.getItem("userCalendar");
+          if (calStr) {
+            currentCalendar = JSON.parse(calStr);
+            if (typeof currentCalendar.plan === "string") {
+              currentCalendar.plan = JSON.parse(currentCalendar.plan);
+            }
+            console.log(
+              "loadMonthlyGoals - Loaded calendar from AsyncStorage:",
+              {
+                id: currentCalendar.id,
+                planKeys: currentCalendar.plan
+                  ? Object.keys(currentCalendar.plan).length
+                  : 0,
+              }
+            );
+            // Update state if we loaded a new calendar
+            if (!userCalendar || userCalendar.id !== currentCalendar.id) {
+              console.log("loadMonthlyGoals - Updating userCalendar state");
+              setUserCalendar(currentCalendar);
+            }
+          } else {
+            console.log("loadMonthlyGoals - No calendar found in AsyncStorage");
+          }
+        } catch (e) {
+          console.error(
+            "loadMonthlyGoals - Error loading calendar from AsyncStorage:",
+            e
+          );
+        }
+      }
+
+      if (currentCalendar?.plan) {
         // Count only workouts in the current month
-        Object.values(userCalendar.plan).forEach((dayPlan: any) => {
+        Object.values(currentCalendar.plan).forEach((dayPlan: any) => {
           const dayDate = new Date(dayPlan.date);
           const dayMonth = dayDate.toISOString().substring(0, 7);
           if (dayMonth === currentMonth) {
@@ -1699,8 +2100,18 @@ export default function CalendarScreen() {
       console.log("Workouts in current month:", calendarWorkoutCount);
       console.log(
         "Total calendar entries:",
-        userCalendar?.plan ? Object.keys(userCalendar.plan).length : 0
+        currentCalendar?.plan ? Object.keys(currentCalendar.plan).length : 0
       );
+      console.log("loadMonthlyGoals - Calendar data:", {
+        hasCalendar: !!currentCalendar,
+        hasPlan: !!currentCalendar?.plan,
+        planKeys: currentCalendar?.plan
+          ? Object.keys(currentCalendar.plan).length
+          : 0,
+        firstFewDates: currentCalendar?.plan
+          ? Object.keys(currentCalendar.plan).slice(0, 3)
+          : [],
+      });
 
       const { data, error } = await supabase.rpc(
         "get_or_create_monthly_goals",
@@ -2363,10 +2774,7 @@ export default function CalendarScreen() {
                             // Clear local calendar data
                             await AsyncStorage.removeItem("userCalendar");
                             setUserCalendar(null);
-                            // Remove from local list
-                            if (current?.id) {
-                              await removeMyCalendarId(current.id);
-                            }
+                            // Local tracking removed; list reloads from Supabase
                             // Reset selectedDays when clearing calendar
                             setSelectedDays([]);
 

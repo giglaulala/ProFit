@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -159,19 +158,8 @@ export default function CreateCalendarScreen() {
         level: cal.level,
       });
       if (error && !String(error.message || "").includes("duplicate")) throw error;
-
-      const calWithTitle = { ...cal, title: finalTitle };
-      await AsyncStorage.setItem("userCalendar", JSON.stringify(calWithTitle));
-      // Track locally so it appears in the dropdown filter
-      try {
-        const key = "myCalendars";
-        const s = await AsyncStorage.getItem(key);
-        const ids = s ? (JSON.parse(s) as string[]) : [];
-        if (!ids.includes(calWithTitle.id)) {
-          ids.push(calWithTitle.id);
-          await AsyncStorage.setItem(key, JSON.stringify(ids));
-        }
-      } catch {}
+      
+      // Supabase holds the source of truth; calendar tab will reload from DB on focus
       // Navigate back to Calendar tab
       router.back();
     } catch (e: any) {
