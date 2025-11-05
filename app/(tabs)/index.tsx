@@ -86,6 +86,26 @@ export default function DashboardScreen() {
     totalCalories: number;
   }>({ totalCompleted: 0, totalMinutes: 0, totalCalories: 0 });
 
+  // Derive selected days (Mon..Sun) from a calendar plan if not explicitly stored
+  const computeSelectedDaysFromPlan = (plan: Record<string, any> | undefined) => {
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const ordered = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const selected = new Set<string>();
+    if (plan && typeof plan === "object") {
+      Object.values(plan).forEach((p: any) => {
+        if (!p || !p.date) return;
+        const parts = String(p.date).slice(0, 10).split("-");
+        if (parts.length !== 3) return;
+        const y = Number(parts[0]);
+        const m = Number(parts[1]);
+        const d = Number(parts[2]);
+        const dt = new Date(y, m - 1, d);
+        selected.add(dayNames[dt.getDay()]);
+      });
+    }
+    return ordered.filter((d) => selected.has(d));
+  };
+
   // Custom Alert States
   const [showCustomAlert, setShowCustomAlert] = useState(false);
   const [alertData, setAlertData] = useState<{
@@ -587,9 +607,18 @@ export default function DashboardScreen() {
         ]);
         if (calStr) {
           const calendar = JSON.parse(calStr);
+          // If selectedDays wasn't persisted (older calendars), derive from plan
+          if (!Array.isArray(calendar.selectedDays) && calendar.plan) {
+            const derived = computeSelectedDaysFromPlan(calendar.plan);
+            if (derived.length) {
+              calendar.selectedDays = derived;
+              try {
+                await AsyncStorage.setItem("userCalendar", JSON.stringify(calendar));
+              } catch {}
+            }
+          }
           setUserCalendar(calendar);
-          // Update selectedDays from the loaded calendar
-          if (calendar.selectedDays) {
+          if (Array.isArray(calendar.selectedDays)) {
             setSelectedDays(calendar.selectedDays);
           }
         }
@@ -1596,8 +1625,21 @@ export default function DashboardScreen() {
               );
               setUserCalendar(sanitized);
             } else {
+              // If selectedDays missing, derive from plan and persist
+              if (!Array.isArray(calendar.selectedDays) && calendar.plan) {
+                const derived = computeSelectedDaysFromPlan(calendar.plan);
+                if (derived.length) {
+                  calendar.selectedDays = derived;
+                  try {
+                    await AsyncStorage.setItem(
+                      "userCalendar",
+                      JSON.stringify(calendar)
+                    );
+                  } catch {}
+                }
+              }
               setUserCalendar(calendar);
-              if (calendar.selectedDays) {
+              if (Array.isArray(calendar.selectedDays)) {
                 setSelectedDays(calendar.selectedDays);
                 setFreeDays(calendar.selectedDays.length);
               }

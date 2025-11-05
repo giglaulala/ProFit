@@ -101,6 +101,28 @@ export default function CalendarScreen() {
   const router = useRouter();
   // Deprecated: local calendar tracking removed; rely solely on Supabase
 
+  // Derive selected days (Mon..Sun) from a calendar plan if not explicitly stored
+  const computeSelectedDaysFromPlan = (
+    plan: Record<string, any> | undefined
+  ) => {
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const ordered = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const selected = new Set<string>();
+    if (plan && typeof plan === "object") {
+      Object.values(plan).forEach((p: any) => {
+        if (!p || !p.date) return;
+        const parts = String(p.date).slice(0, 10).split("-");
+        if (parts.length !== 3) return;
+        const y = Number(parts[0]);
+        const m = Number(parts[1]);
+        const d = Number(parts[2]);
+        const dt = new Date(y, m - 1, d);
+        selected.add(dayNames[dt.getDay()]);
+      });
+    }
+    return ordered.filter((d) => selected.has(d));
+  };
+
   const loadUserCalendars = async () => {
     try {
       const { data: userInfo } = await supabase.auth.getUser();
@@ -272,6 +294,14 @@ export default function CalendarScreen() {
                   level: latestCalendar.level,
                   shareCode: latestCalendar.id,
                 };
+
+                // Attach derived selectedDays so other tabs (dashboard) can highlight days
+                const derivedDays = computeSelectedDaysFromPlan(
+                  calendarData.plan
+                );
+                if (derivedDays.length) {
+                  (calendarData as any).selectedDays = derivedDays;
+                }
 
                 // Save to AsyncStorage for future loads
                 await AsyncStorage.setItem(
@@ -2378,13 +2408,22 @@ export default function CalendarScreen() {
                 <TouchableOpacity
                   key={c.id}
                   onPress={async () => {
+                    // Ensure selectedDays exists by deriving it from the plan
+                    const selectedDaysFromPlan = computeSelectedDaysFromPlan(
+                      c.plan
+                    );
+                    const nextCal: any = selectedDaysFromPlan.length
+                      ? { ...c, selectedDays: selectedDaysFromPlan }
+                      : c;
                     await AsyncStorage.setItem(
                       "userCalendar",
-                      JSON.stringify(c)
+                      JSON.stringify(nextCal)
                     );
-                    setUserCalendar(c);
-                    if (c.goal) setSelectedWorkoutGoal(c.goal);
-                    if (c.level) setLevel(c.level);
+                    setUserCalendar(nextCal);
+                    if (nextCal.selectedDays)
+                      setSelectedDays(nextCal.selectedDays);
+                    if (nextCal.goal) setSelectedWorkoutGoal(nextCal.goal);
+                    if (nextCal.level) setLevel(nextCal.level);
                     setShowPlansMenu(false);
                   }}
                   activeOpacity={0.8}
