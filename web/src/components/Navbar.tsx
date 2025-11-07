@@ -3,6 +3,7 @@ import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import type { Route } from "next";
 
 export function Navbar() {
   const t = useTranslations("nav");
@@ -13,33 +14,33 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-background/70 backdrop-blur">
       <div className="container flex h-14 items-center justify-between">
-        <Link href={base} className="font-semibold">
+        <Link href={base as Route} className="font-semibold">
           ProFit
         </Link>
         <nav className="flex items-center gap-6 text-sm">
-          <Link href={`${base}`} className={linkClass(pathname === `${base}`)}>
+          <Link href={`${base}` as Route} className={linkClass(pathname === `${base}`)}>
             {t("home")}
           </Link>
           <Link
-            href={`${base}/product`}
+            href={`${base}/product` as Route}
             className={linkClass(pathname?.startsWith(`${base}/product`))}
           >
             {t("product")}
           </Link>
           <Link
-            href={`${base}/pricing`}
+            href={`${base}/pricing` as Route}
             className={linkClass(pathname?.startsWith(`${base}/pricing`))}
           >
             {t("pricing")}
           </Link>
           <Link
-            href={`${base}/contact`}
+            href={`${base}/contact` as Route}
             className={linkClass(pathname?.startsWith(`${base}/contact`))}
           >
             {t("contact")}
           </Link>
           <Link
-            href={`${base}/download`}
+            href={`${base}/download` as Route}
             className={linkClass(pathname?.startsWith(`${base}/download`))}
           >
             {t("download")}
