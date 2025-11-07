@@ -33,14 +33,14 @@ export default async function DownloadPage({
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
             <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1">
-                <p className="text-sm text-white/70">Android .apk • ~50MB</p>
+                <p className="text-sm text-white/70">Android .apk • ~190MB</p>
                 <p className="text-xs text-white/50">
                   If prompted, allow installs from your browser.
                 </p>
               </div>
 
               <a
-                href="/profit-latest.apk"
+                href="https://github.com/giglaulala/ProFit/releases/download/v1.0.0/build-1762539113240.apk"
                 download
                 target="_blank"
                 rel="noopener noreferrer"

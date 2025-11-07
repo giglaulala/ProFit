@@ -1,11 +1,5 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
   "/page": "app/page.js",
-  "/api/chat/route": "app/api/chat/route.js",
   "/[locale]/page": "app/[locale]/page.js",
-  "/[locale]/contact/page": "app/[locale]/contact/page.js",
-  "/[locale]/pricing/page": "app/[locale]/pricing/page.js",
-  "/[locale]/product/page": "app/[locale]/product/page.js",
-  "/[locale]/download/page": "app/[locale]/download/page.js",
-  "/api/og/route": "app/api/og/route.js"
+  "/[locale]/download/page": "app/[locale]/download/page.js"
 }
