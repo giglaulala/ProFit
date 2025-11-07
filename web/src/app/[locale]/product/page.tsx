@@ -21,12 +21,12 @@ export default async function ProductPage({
         {/* Split hero */}
         <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-2">
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
+            <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
               {t("title")}
             </h1>
-            <p className="mt-3 max-w-xl text-white/70">{t("subtitle")}</p>
+            <p className="mt-3 text-sm text-white/70 sm:text-base">{t("subtitle")}</p>
 
-            <ul className="mt-6 space-y-3 text-sm text-white/80">
+            <ul className="mt-6 space-y-3 text-xs text-white/80 sm:text-sm">
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[rgb(226_255_0/0.2)] text-[rgb(226_255_0)]">
                   ✓
@@ -77,9 +77,9 @@ export default async function ProductPage({
               </div>
             </div>
             <div className="order-1 md:order-2">
-              <h3 className="text-2xl font-bold">{p("programsTitle")}</h3>
-              <p className="mt-2 text-white/70">{p("programsDesc")}</p>
-              <ul className="mt-4 space-y-2 text-sm text-white/80">
+              <h3 className="text-xl font-bold sm:text-2xl">{p("programsTitle")}</h3>
+              <p className="mt-2 text-sm text-white/70 sm:text-base">{p("programsDesc")}</p>
+              <ul className="mt-4 space-y-2 text-xs text-white/80 sm:text-sm">
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[rgb(226_255_0/0.2)] text-[rgb(226_255_0)]">
                     ✓
@@ -99,9 +99,9 @@ export default async function ProductPage({
           {/* Feature 2 */}
           <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-2">
             <div>
-              <h3 className="text-2xl font-bold">{p("insightsTitle")}</h3>
-              <p className="mt-2 text-white/70">{p("insightsDesc")}</p>
-              <ul className="mt-4 space-y-2 text-sm text-white/80">
+              <h3 className="text-xl font-bold sm:text-2xl">{p("insightsTitle")}</h3>
+              <p className="mt-2 text-sm text-white/70 sm:text-base">{p("insightsDesc")}</p>
+              <ul className="mt-4 space-y-2 text-xs text-white/80 sm:text-sm">
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[rgb(226_255_0/0.2)] text-[rgb(226_255_0)]">
                     ✓
@@ -141,9 +141,9 @@ export default async function ProductPage({
               </div>
             </div>
             <div className="order-1 md:order-2">
-              <h3 className="text-2xl font-bold">{p("formTitle")}</h3>
-              <p className="mt-2 text-white/70">{p("formDesc")}</p>
-              <ul className="mt-4 space-y-2 text-sm text-white/80">
+              <h3 className="text-xl font-bold sm:text-2xl">{p("formTitle")}</h3>
+              <p className="mt-2 text-sm text-white/70 sm:text-base">{p("formDesc")}</p>
+              <ul className="mt-4 space-y-2 text-xs text-white/80 sm:text-sm">
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[rgb(226_255_0/0.2)] text-[rgb(226_255_0)]">
                     ✓
@@ -162,8 +162,8 @@ export default async function ProductPage({
         </div>
 
         {/* Steps strip */}
-        <div className="mt-20 rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur">
-          <ol className="grid grid-cols-1 gap-6 text-sm sm:grid-cols-3">
+        <div className="mt-12 rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur sm:mt-20 sm:p-6">
+          <ol className="grid grid-cols-1 gap-4 text-xs sm:grid-cols-3 sm:gap-6 sm:text-sm">
             <li className="rounded-xl bg-white/[0.03] p-4">
               <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[rgb(226_255_0/0.2)] text-[rgb(226_255_0)]">
                 1

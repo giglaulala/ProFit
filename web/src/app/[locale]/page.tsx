@@ -19,20 +19,20 @@ export default async function HomePage({
         {/* Hero */}
         <div className="grid items-center gap-10 md:grid-cols-2">
           <div className="space-y-4">
-            <h1 className="text-4xl font-extrabold leading-tight md:text-5xl">
+            <h1 className="text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">
               {t("title")}
             </h1>
-            <p className="text-lg text-white/80">{t("subtitle")}</p>
-            <div className="flex gap-4">
+            <p className="text-base text-white/80 sm:text-lg">{t("subtitle")}</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
               <Link
                 href={`/${params.locale}/download`}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[rgb(226_255_0)] px-5 py-3 font-medium text-black shadow-lg transition hover:translate-y-[-1px] hover:bg-[rgb(226_255_0/0.9)] focus:outline-none focus:ring-2 focus:ring-[rgb(226_255_0/0.35)]"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[rgb(226_255_0)] px-5 py-3 text-sm font-medium text-black shadow-lg transition hover:translate-y-[-1px] hover:bg-[rgb(226_255_0/0.9)] focus:outline-none focus:ring-2 focus:ring-[rgb(226_255_0/0.35)] sm:text-base"
               >
                 {t("cta")}
               </Link>
               <Link
                 href={`/${params.locale}/product`}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 font-medium text-white/90 backdrop-blur transition hover:bg-white/[0.06]"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-medium text-white/90 backdrop-blur transition hover:bg-white/[0.06] sm:text-base"
               >
                 {h("learnMore")}
               </Link>
@@ -53,18 +53,18 @@ export default async function HomePage({
         </div>
 
         {/* Stats row */}
-        <div className="mt-12 grid grid-cols-3 gap-4 text-center text-sm sm:text-base">
+        <div className="mt-12 grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
           <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="text-2xl font-extrabold">200k+</div>
-            <div className="text-white/60">{h("statsWorkouts")}</div>
+            <div className="text-2xl font-extrabold sm:text-3xl">200k+</div>
+            <div className="mt-1 text-sm text-white/60 sm:text-base">{h("statsWorkouts")}</div>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="text-2xl font-extrabold">500+</div>
-            <div className="text-white/60">{h("statsVideos")}</div>
+            <div className="text-2xl font-extrabold sm:text-3xl">500+</div>
+            <div className="mt-1 text-sm text-white/60 sm:text-base">{h("statsVideos")}</div>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="text-2xl font-extrabold">4.9★</div>
-            <div className="text-white/60">{h("statsRating")}</div>
+            <div className="text-2xl font-extrabold sm:text-3xl">4.9★</div>
+            <div className="mt-1 text-sm text-white/60 sm:text-base">{h("statsRating")}</div>
           </div>
         </div>
 
@@ -89,16 +89,16 @@ export default async function HomePage({
         {/* CTA strip */}
         <div className="mt-14 rounded-2xl border border-white/10 bg-white/[0.04] p-6 text-center backdrop-blur">
           <p className="text-white/80">{h("ctaStripText")}</p>
-          <div className="mt-4 flex items-center justify-center gap-3">
+          <div className="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href={`/${params.locale}/download`}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[rgb(226_255_0)] px-5 py-2.5 font-medium text-black shadow-lg transition hover:translate-y-[-1px] hover:bg-[rgb(226_255_0/0.9)] focus:outline-none focus:ring-2 focus:ring-[rgb(226_255_0/0.35)]"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[rgb(226_255_0)] px-5 py-2.5 text-sm font-medium text-black shadow-lg transition hover:translate-y-[-1px] hover:bg-[rgb(226_255_0/0.9)] focus:outline-none focus:ring-2 focus:ring-[rgb(226_255_0/0.35)] sm:w-auto sm:text-base"
             >
               {h("ctaDownload")}
             </Link>
             <Link
               href={`/${params.locale}/pricing`}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-5 py-2.5 font-medium text-white/90 backdrop-blur transition hover:bg-white/[0.06]"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-5 py-2.5 text-sm font-medium text-white/90 backdrop-blur transition hover:bg-white/[0.06] sm:w-auto sm:text-base"
             >
               {h("ctaPricing")}
             </Link>
