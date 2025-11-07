@@ -19,7 +19,7 @@ export function LanguageSwitcher() {
   }
 
   return (
-    <div className="flex gap-2 text-xs">
+    <div className="flex gap-1.5 text-xs sm:gap-2">
       <button onClick={() => switchTo("en")} className={btn(locale === "en")}>
         EN
       </button>
@@ -32,7 +32,7 @@ export function LanguageSwitcher() {
 }
 
 function btn(active: boolean) {
-  return `px-2 py-1 rounded ${
-    active ? "bg-primary text-black" : "text-white/80 hover:text-primary"
+  return `px-1.5 py-0.5 rounded text-xs transition sm:px-2 sm:py-1 ${
+    active ? "bg-primary text-black font-medium" : "text-white/80 hover:text-primary"
   }`;
 }

@@ -19,24 +19,24 @@ export default async function ContactPage({
 
       <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6 md:py-20 lg:px-8">
         <header className="mx-auto max-w-2xl text-center">
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
+          <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
             {t("title")}
           </h1>
-          <p className="mt-3 text-white/70">{t("subtitle")}</p>
+          <p className="mt-3 text-sm text-white/70 sm:text-base">{t("subtitle")}</p>
         </header>
 
-        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
           <a
             href="mailto:hello@profit.app"
-            className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition hover:bg-white/[0.06]"
+            className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:bg-white/[0.06] sm:p-5"
           >
-            <div className="flex items-start gap-4">
-              <div className="mt-1 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[rgb(226_255_0/0.15)] text-[rgb(226_255_0)]">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[rgb(226_255_0/0.15)] text-[rgb(226_255_0)] sm:h-10 sm:w-10">
                 ✉️
               </div>
-              <div>
-                <h3 className="font-semibold">{c("emailTitle")}</h3>
-                <p className="text-sm text-white/70">hello@profit.app</p>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold sm:text-base">{c("emailTitle")}</h3>
+                <p className="mt-1 text-xs text-white/70 sm:text-sm">hello@profit.app</p>
                 <p className="mt-2 text-xs text-white/50">{c("emailDesc")}</p>
               </div>
             </div>
@@ -49,15 +49,15 @@ export default async function ContactPage({
             href="https://t.me/yourchannel"
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition hover:bg-white/[0.06]"
+            className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:bg-white/[0.06] sm:p-5"
           >
-            <div className="flex items-start gap-4">
-              <div className="mt-1 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[rgb(226_255_0/0.15)] text-[rgb(226_255_0)]">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[rgb(226_255_0/0.15)] text-[rgb(226_255_0)] sm:h-10 sm:w-10">
                 💬
               </div>
-              <div>
-                <h3 className="font-semibold">{c("telegramTitle")}</h3>
-                <p className="text-sm text-white/70">{c("telegramDesc")}</p>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold sm:text-base">{c("telegramTitle")}</h3>
+                <p className="mt-1 text-xs text-white/70 sm:text-sm">{c("telegramDesc")}</p>
                 <p className="mt-2 text-xs text-white/50">
                   {c("telegramNote")}
                 </p>
@@ -72,15 +72,15 @@ export default async function ContactPage({
             href="https://instagram.com/yourprofile"
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition hover:bg-white/[0.06]"
+            className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:bg-white/[0.06] sm:p-5"
           >
-            <div className="flex items-start gap-4">
-              <div className="mt-1 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[rgb(226_255_0/0.15)] text-[rgb(226_255_0)]">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[rgb(226_255_0/0.15)] text-[rgb(226_255_0)] sm:h-10 sm:w-10">
                 📸
               </div>
-              <div>
-                <h3 className="font-semibold">{c("instagramTitle")}</h3>
-                <p className="text-sm text-white/70">{c("instagramDesc")}</p>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold sm:text-base">{c("instagramTitle")}</h3>
+                <p className="mt-1 text-xs text-white/70 sm:text-sm">{c("instagramDesc")}</p>
                 <p className="mt-2 text-xs text-white/50">
                   {c("instagramNote")}
                 </p>
@@ -92,35 +92,35 @@ export default async function ContactPage({
           </a>
         </div>
 
-        <div className="mt-14">
-          <h2 className="text-xl font-semibold">{c("faqTitle")}</h2>
+        <div className="mt-10 sm:mt-14">
+          <h2 className="text-lg font-semibold sm:text-xl">{c("faqTitle")}</h2>
           <div className="mt-4 divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10">
-            <details className="group bg-white/[0.03] p-5 open:bg-white/[0.04]">
-              <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
+            <details className="group bg-white/[0.03] p-4 open:bg-white/[0.04] sm:p-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium sm:text-base">
                 {c("faq1Q")}
-                <span className="ml-4 text-white/40 transition group-open:rotate-90">
+                <span className="ml-4 shrink-0 text-white/40 transition group-open:rotate-90">
                   ›
                 </span>
               </summary>
-              <p className="mt-3 text-sm text-white/70">{c("faq1A")}</p>
+              <p className="mt-3 text-xs text-white/70 sm:text-sm">{c("faq1A")}</p>
             </details>
-            <details className="group bg-white/[0.03] p-5 open:bg-white/[0.04]">
-              <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
+            <details className="group bg-white/[0.03] p-4 open:bg-white/[0.04] sm:p-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium sm:text-base">
                 {c("faq2Q")}
-                <span className="ml-4 text-white/40 transition group-open:rotate-90">
+                <span className="ml-4 shrink-0 text-white/40 transition group-open:rotate-90">
                   ›
                 </span>
               </summary>
-              <p className="mt-3 text-sm text-white/70">{c("faq2A")}</p>
+              <p className="mt-3 text-xs text-white/70 sm:text-sm">{c("faq2A")}</p>
             </details>
-            <details className="group bg-white/[0.03] p-5 open:bg-white/[0.04]">
-              <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
+            <details className="group bg-white/[0.03] p-4 open:bg-white/[0.04] sm:p-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium sm:text-base">
                 {c("faq3Q")}
-                <span className="ml-4 text-white/40 transition group-open:rotate-90">
+                <span className="ml-4 shrink-0 text-white/40 transition group-open:rotate-90">
                   ›
                 </span>
               </summary>
-              <p className="mt-3 text-sm text-white/70">{c("faq3A")}</p>
+              <p className="mt-3 text-xs text-white/70 sm:text-sm">{c("faq3A")}</p>
             </details>
           </div>
         </div>
