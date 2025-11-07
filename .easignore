@@ -1,0 +1,28 @@
+# Exclude the Next.js web app to keep mobile build context lean
+web/
+
+# Node modules are installed on the builder
+node_modules/
+web/node_modules/
+
+# Common build artifacts
+.dist/
+dist/
+build/
+
+# iOS/Android native folders if generated locally
+ios/
+android/
+
+# Logs and caches
+*.log
+npm-debug.log*
+yarn-error.log*
+.expo/
+.expo-shared/
+.cache/
+.DS_Store
+
+# Git
+.git/
+
