@@ -1,6 +1,7 @@
 "use client";
 import { useLocale } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
+import type { Route } from "next";
 
 export function LanguageSwitcher() {
   const locale = useLocale();
@@ -13,8 +14,8 @@ export function LanguageSwitcher() {
     if (parts.length > 0) {
       parts[0] = target;
     }
-    const next = `/${parts.join("/")}` || `/${target}`;
-    router.push(next);
+    const nextPath = (parts.length ? `/${parts.join("/")}` : `/${target}`) as Route;
+    router.push(nextPath);
   }
 
   return (
