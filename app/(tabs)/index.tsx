@@ -64,9 +64,10 @@ export default function DashboardScreen() {
     number | null
   >(null);
   const [completedExercisesCount, setCompletedExercisesCount] = useState(0);
-  const [weight, setWeight] = useState(75);
-  const [height, setHeight] = useState(175);
-  const [freeDays, setFreeDays] = useState(3);
+  const [weight, setWeight] = useState<number | null>(null);
+  const [height, setHeight] = useState<number | null>(null);
+  const [freeDays, setFreeDays] = useState<number | null>(null);
+  const [isSettingsLoading, setIsSettingsLoading] = useState(true);
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [showHeightModal, setShowHeightModal] = useState(false);
   const [showFreeDaysModal, setShowFreeDaysModal] = useState(false);
@@ -148,6 +149,16 @@ export default function DashboardScreen() {
     caloriesBurned: 0,
     minutesExercised: 0,
   });
+
+  const formatStatValue = (
+    value: number | null | undefined,
+    suffix?: string
+  ) => {
+    if (value === null || value === undefined) {
+      return "--";
+    }
+    return suffix ? `${value}${suffix}` : String(value);
+  };
 
   const workoutGoals = [
     {
@@ -706,6 +717,8 @@ export default function DashboardScreen() {
         }
       } catch (e) {
         console.error("calendar load error", e);
+      } finally {
+        setIsSettingsLoading(false);
       }
     })();
   }, []);
@@ -733,25 +746,27 @@ export default function DashboardScreen() {
   }, []);
 
   const persistTraineeSettings = async (next: {
-    weight?: number;
-    height?: number;
-    freeDays?: number;
+    weight?: number | null;
+    height?: number | null;
+    freeDays?: number | null;
     goal?: string;
   }) => {
     try {
       const { data: userInfo } = await supabase.auth.getUser();
       const userId = userInfo.user?.id;
       if (!userId) return;
-      await supabase.from("trainee_settings").upsert(
-        {
-          id: userId,
-          goal: next.goal ?? selectedWorkoutGoal,
-          weight: next.weight ?? weight,
-          height: next.height ?? height,
-          free_days: next.freeDays ?? freeDays,
-        },
-        { onConflict: "id" }
-      );
+      await supabase
+        .from("trainee_settings")
+        .upsert(
+          {
+            id: userId,
+            goal: next.goal ?? selectedWorkoutGoal,
+            weight: next.weight ?? weight ?? null,
+            height: next.height ?? height ?? null,
+            free_days: next.freeDays ?? freeDays ?? null,
+          },
+          { onConflict: "id" }
+        );
     } catch (e) {
       console.warn("persist settings failed", e);
     }
@@ -1451,14 +1466,17 @@ export default function DashboardScreen() {
   };
 
   const handleWeightPress = () => {
+    if (isSettingsLoading) return;
     setShowWeightModal(true);
   };
 
   const handleHeightPress = () => {
+    if (isSettingsLoading) return;
     setShowHeightModal(true);
   };
 
   const handleFreeDaysPress = () => {
+    if (isSettingsLoading) return;
     setShowFreeDaysModal(true);
   };
 
@@ -1851,6 +1869,12 @@ export default function DashboardScreen() {
     return count;
   }, [userCalendar]);
 
+  const safeWeight = weight ?? 75;
+  const safeHeight = height ?? 175;
+  const calendarFreeDays = userCalendar ? selectedDays.length : null;
+  const visibleFreeDays = calendarFreeDays ?? freeDays;
+  const editableFreeDays = freeDays ?? calendarFreeDays ?? 3;
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -1908,10 +1932,11 @@ export default function DashboardScreen() {
               style={[styles.statCard, { backgroundColor: colors.darkGray }]}
               onPress={handleWeightPress}
               activeOpacity={0.7}
+              disabled={isSettingsLoading}
             >
               <Ionicons name="scale-outline" size={24} color={colors.primary} />
               <Text style={[styles.statValue, { color: colors.primary }]}>
-                {weight}kg
+                {formatStatValue(isSettingsLoading ? null : weight, "kg")}
               </Text>
               <Text style={[styles.statLabel, { color: colors.text }]}>
                 {t("dashboard.weight").toUpperCase()}
@@ -1922,6 +1947,7 @@ export default function DashboardScreen() {
               style={[styles.statCard, { backgroundColor: colors.darkGray }]}
               onPress={handleHeightPress}
               activeOpacity={0.7}
+              disabled={isSettingsLoading}
             >
               <Ionicons
                 name="resize-outline"
@@ -1929,17 +1955,15 @@ export default function DashboardScreen() {
                 color={colors.secondary}
               />
               <Text style={[styles.statValue, { color: colors.secondary }]}>
-                {height}cm
+                {formatStatValue(isSettingsLoading ? null : height, "cm")}
               </Text>
               <Text style={[styles.statLabel, { color: colors.text }]}>
                 {t("dashboard.height").toUpperCase()}
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
+            <View
               style={[styles.statCard, { backgroundColor: colors.darkGray }]}
-              onPress={handleFreeDaysPress}
-              activeOpacity={0.7}
             >
               <Ionicons
                 name="calendar-outline"
@@ -1947,12 +1971,12 @@ export default function DashboardScreen() {
                 color={colors.accent}
               />
               <Text style={[styles.statValue, { color: colors.accent }]}>
-                {userCalendar ? selectedDays.length : freeDays}
+                {formatStatValue(visibleFreeDays)}
               </Text>
               <Text style={[styles.statLabel, { color: colors.text }]}>
                 {t("dashboard.freeDays").toUpperCase()}
               </Text>
-            </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -2710,7 +2734,7 @@ export default function DashboardScreen() {
 
             <View style={styles.editModalBody}>
               <Text style={[styles.editModalLabel, { color: colors.text }]}>
-                Current Weight: {weight}kg
+                Current Weight: {formatStatValue(weight, "kg")}
               </Text>
               <View style={styles.numberInputContainer}>
                 <TouchableOpacity
@@ -2718,19 +2742,23 @@ export default function DashboardScreen() {
                     styles.numberButton,
                     { backgroundColor: colors.darkGray },
                   ]}
-                  onPress={() => handleWeightChange(Math.max(30, weight - 1))}
+                  onPress={() =>
+                    handleWeightChange(Math.max(30, safeWeight - 1))
+                  }
                 >
                   <Ionicons name="remove" size={24} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.numberInput, { color: colors.primary }]}>
-                  {weight}
+                  {weight ?? safeWeight}
                 </Text>
                 <TouchableOpacity
                   style={[
                     styles.numberButton,
                     { backgroundColor: colors.darkGray },
                   ]}
-                  onPress={() => handleWeightChange(Math.min(200, weight + 1))}
+                  onPress={() =>
+                    handleWeightChange(Math.min(200, safeWeight + 1))
+                  }
                 >
                   <Ionicons name="add" size={24} color={colors.primary} />
                 </TouchableOpacity>
@@ -2768,7 +2796,7 @@ export default function DashboardScreen() {
 
             <View style={styles.editModalBody}>
               <Text style={[styles.editModalLabel, { color: colors.text }]}>
-                Current Height: {height}cm
+                Current Height: {formatStatValue(height, "cm")}
               </Text>
               <View style={styles.numberInputContainer}>
                 <TouchableOpacity
@@ -2776,19 +2804,23 @@ export default function DashboardScreen() {
                     styles.numberButton,
                     { backgroundColor: colors.darkGray },
                   ]}
-                  onPress={() => handleHeightChange(Math.max(100, height - 1))}
+                  onPress={() =>
+                    handleHeightChange(Math.max(100, safeHeight - 1))
+                  }
                 >
                   <Ionicons name="remove" size={24} color={colors.secondary} />
                 </TouchableOpacity>
                 <Text style={[styles.numberInput, { color: colors.secondary }]}>
-                  {height}
+                  {height ?? safeHeight}
                 </Text>
                 <TouchableOpacity
                   style={[
                     styles.numberButton,
                     { backgroundColor: colors.darkGray },
                   ]}
-                  onPress={() => handleHeightChange(Math.min(250, height + 1))}
+                  onPress={() =>
+                    handleHeightChange(Math.min(250, safeHeight + 1))
+                  }
                 >
                   <Ionicons name="add" size={24} color={colors.secondary} />
                 </TouchableOpacity>
@@ -2826,7 +2858,8 @@ export default function DashboardScreen() {
 
             <View style={styles.editModalBody}>
               <Text style={[styles.editModalLabel, { color: colors.text }]}>
-                {t("dashboard.freeDaysPerWeek")}: {freeDays}
+                {t("dashboard.freeDaysPerWeek")}:{" "}
+                {formatStatValue(visibleFreeDays ?? editableFreeDays)}
               </Text>
               <View style={styles.numberInputContainer}>
                 <TouchableOpacity
@@ -2835,13 +2868,13 @@ export default function DashboardScreen() {
                     { backgroundColor: colors.darkGray },
                   ]}
                   onPress={() =>
-                    handleFreeDaysChange(Math.max(0, freeDays - 1))
+                    handleFreeDaysChange(Math.max(0, editableFreeDays - 1))
                   }
                 >
                   <Ionicons name="remove" size={24} color={colors.accent} />
                 </TouchableOpacity>
                 <Text style={[styles.numberInput, { color: colors.accent }]}>
-                  {freeDays}
+                  {editableFreeDays}
                 </Text>
                 <TouchableOpacity
                   style={[
@@ -2849,7 +2882,7 @@ export default function DashboardScreen() {
                     { backgroundColor: colors.darkGray },
                   ]}
                   onPress={() =>
-                    handleFreeDaysChange(Math.min(7, freeDays + 1))
+                    handleFreeDaysChange(Math.min(7, editableFreeDays + 1))
                   }
                 >
                   <Ionicons name="add" size={24} color={colors.accent} />
