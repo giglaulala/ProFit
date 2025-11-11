@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useMemo, useState } from "react";
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -236,10 +237,17 @@ export default function WorkoutsScreen() {
     [currentVideoIds, searchQuery]
   );
 
-  const openVideo = (name: string) => {
-    const v = getVideoByExerciseName(name);
-    if (!v) return;
-    setActiveVideoId(v.id);
+  const openVideo = (identifier: string) => {
+    const videoById =
+      workoutVideos[identifier as keyof typeof workoutVideos];
+    const video = videoById || getVideoByExerciseName(identifier);
+
+    if (!video) {
+      Alert.alert(t("common.error"), t("workouts.noVideos"));
+      return;
+    }
+
+    setActiveVideoId(video.id);
     setVideoVisible(true);
   };
 
@@ -357,7 +365,7 @@ export default function WorkoutsScreen() {
                     { backgroundColor: colors.lightGray },
                   ]}
                   activeOpacity={0.8}
-                  onPress={() => openVideo(v.title)}
+                  onPress={() => openVideo(v.id)}
                 >
                   <View style={styles.workoutHeader}>
                     <View
