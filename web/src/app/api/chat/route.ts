@@ -1,68 +1,69 @@
 export const dynamic = "force-dynamic";
 
+type ChatRole = "system" | "user" | "assistant";
+
 type ChatRequestBody = {
   input?: string;
-  messages?: { role: "system" | "user" | "assistant"; content: string }[];
+  messages?: { role: ChatRole; content: string }[];
 };
 
-// Simple fitness-focused response generator
-function generateFitnessResponse(userInput: string): string {
-  const input = userInput.toLowerCase();
+type OpenAIChatMessage = {
+  role: ChatRole;
+  content: string;
+};
 
-  if (input.includes("workout") || input.includes("exercise")) {
-    return "Great question! For effective workouts, I recommend:\n\n• Start with 3-4 sessions per week\n• Include both cardio and strength training\n• Focus on compound movements like squats, deadlifts, and push-ups\n• Gradually increase intensity and duration\n• Always warm up properly and listen to your body\n\nWhat specific type of workout are you interested in?";
+const DEFAULT_SYSTEM_PROMPT = `
+You are ProFit AI, a certified personal trainer and nutrition coach.
+Offer practical, evidence-based advice about workouts, nutrition, recovery,
+and habit building. Tailor suggestions to the user's context, ask clarifying
+questions when needed, and keep answers concise but actionable. Avoid medical
+diagnoses and recommend consulting health professionals when appropriate.
+`.trim();
+
+const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const OPENAI_API_URL =
+  process.env.OPENAI_API_URL?.replace(/\/$/, "") ||
+  "https://api.openai.com/v1/chat/completions";
+
+const buildMessageHistory = (
+  messages: ChatRequestBody["messages"],
+  fallbackUserInput: string
+): OpenAIChatMessage[] => {
+  const history: OpenAIChatMessage[] = [];
+
+  const hasSystem = messages?.some((msg) => msg.role === "system");
+  if (!hasSystem) {
+    history.push({ role: "system", content: DEFAULT_SYSTEM_PROMPT });
   }
 
-  if (
-    input.includes("diet") ||
-    input.includes("nutrition") ||
-    input.includes("food")
-  ) {
-    return "Nutrition is key to fitness success! Here are some tips:\n\n• Eat a balanced diet with lean proteins, complex carbs, and healthy fats\n• Stay hydrated - aim for 8-10 glasses of water daily\n• Eat smaller, more frequent meals throughout the day\n• Include plenty of fruits and vegetables\n• Consider timing meals around your workouts\n\nWould you like specific meal plan suggestions?";
+  if (messages?.length) {
+    messages.forEach((message) => {
+      if (
+        message?.content &&
+        ["system", "user", "assistant"].includes(message.role)
+      ) {
+        history.push({
+          role: message.role,
+          content: message.content,
+        });
+      }
+    });
+  } else if (fallbackUserInput) {
+    history.push({ role: "user", content: fallbackUserInput });
   }
 
-  if (
-    input.includes("weight") ||
-    input.includes("fat") ||
-    input.includes("lose")
-  ) {
-    return "Sustainable weight loss requires a combination of:\n\n• Regular exercise (both cardio and strength training)\n• Calorie deficit through balanced nutrition\n• Adequate sleep and stress management\n• Consistency over time\n• Setting realistic, achievable goals\n\nRemember, slow and steady progress is more sustainable than rapid changes!";
+  if (history.length === 1 && history[0].role === "system") {
+    history.push({ role: "user", content: fallbackUserInput });
   }
 
-  if (
-    input.includes("muscle") ||
-    input.includes("strength") ||
-    input.includes("build")
-  ) {
-    return "Building muscle and strength involves:\n\n• Progressive overload in your training\n• Compound movements (squats, deadlifts, bench press)\n• Adequate protein intake (1.6-2.2g per kg body weight)\n• Sufficient rest and recovery between sessions\n• Consistency in your training program\n\nAre you following a specific strength training program?";
-  }
-
-  if (
-    input.includes("cardio") ||
-    input.includes("running") ||
-    input.includes("endurance")
-  ) {
-    return "Cardio training is excellent for heart health and endurance:\n\n• Start with moderate intensity for 20-30 minutes\n• Gradually increase duration and intensity\n• Mix different types: running, cycling, swimming, rowing\n• Include both steady-state and interval training\n• Listen to your body and don't overdo it\n\nWhat's your current fitness level?";
-  }
-
-  if (
-    input.includes("motivation") ||
-    input.includes("stuck") ||
-    input.includes("help")
-  ) {
-    return "Staying motivated can be challenging! Here are some strategies:\n\n• Set specific, measurable goals\n• Track your progress and celebrate small wins\n• Find a workout buddy or join a community\n• Mix up your routine to avoid boredom\n• Remember why you started and focus on how good you feel after workouts\n\nWhat's your main fitness goal right now?";
-  }
-
-  // Default response for general fitness questions
-  return "I'm here to help with your fitness journey! I can provide guidance on:\n\n• Workout routines and exercise techniques\n• Nutrition and diet advice\n• Weight loss and muscle building strategies\n• Cardio and endurance training\n• Motivation and goal setting\n\nWhat specific area would you like to focus on? Feel free to ask me anything about fitness!";
-}
+  return history;
+};
 
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as ChatRequestBody;
     const { input, messages } = body || {};
 
-    // Get the last user message
     const lastUserMessage =
       messages?.findLast((m) => m.role === "user")?.content || input || "";
 
@@ -73,13 +74,65 @@ export async function POST(req: Request) {
       });
     }
 
-    const content = generateFitnessResponse(lastUserMessage);
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      console.error("Missing OPENAI_API_KEY environment variable.");
+      return new Response(
+        JSON.stringify({
+          error:
+            "AI service is not configured. Please set OPENAI_API_KEY on the server.",
+        }),
+        {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        }
+      );
+    }
+
+    const conversation = buildMessageHistory(messages, lastUserMessage);
+
+    const openAiResponse = await fetch(`${OPENAI_API_URL}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: DEFAULT_OPENAI_MODEL,
+        messages: conversation,
+        temperature: 0.7,
+        max_tokens: 600,
+      }),
+    });
+
+    if (!openAiResponse.ok) {
+      const errorPayload = await openAiResponse
+        .json()
+        .catch(() => ({ error: openAiResponse.statusText }));
+      console.error("OpenAI API error:", errorPayload);
+      return new Response(
+        JSON.stringify({
+          error: "Failed to generate AI response.",
+          details: errorPayload?.error || `HTTP ${openAiResponse.status}`,
+        }),
+        {
+          status: 502,
+          headers: { "content-type": "application/json" },
+        }
+      );
+    }
+
+    const openAiData = await openAiResponse.json();
+    const content =
+      openAiData?.choices?.[0]?.message?.content?.trim() ||
+      "I'm sorry, I couldn't generate a response right now. Please try again.";
 
     return new Response(JSON.stringify({ content }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
   } catch (error: any) {
+    console.error("Chat route error:", error);
     return new Response(
       JSON.stringify({
         error: "Server error",
