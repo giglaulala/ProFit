@@ -16,6 +16,18 @@ const LanguageContext = createContext<LanguageContextType | undefined>(
 
 // English translations
 const enTranslations: Record<string, string> = {
+  // Achievements
+  "achievements.title": "Achievements",
+  "achievements.firstWorkout": "First Workout",
+  "achievements.firstWorkoutDescription": "Complete your first workout.",
+  "achievements.sevenDayChallenge": "7 Day Challenge",
+  "achievements.sevenDayChallengeDescription": "Complete workouts seven days in a row.",
+  "achievements.thirtyDayChallenge": "30 Day Challenge",
+  "achievements.thirtyDayChallengeDescription": "Complete workouts thirty days in a row.",
+  "achievements.unlocked": "Unlocked",
+  "achievements.daysLabel": "days",
+  "achievements.workoutsLabel": "workouts",
+  "achievements.keepGoing": "Keep going!",
   // Dashboard
   "dashboard.title": "ProFit Dashboard",
   "dashboard.subtitle": "Your fitness journey starts here",
@@ -220,6 +232,18 @@ const enTranslations: Record<string, string> = {
 
 // Georgian translations
 const kaTranslations: Record<string, string> = {
+  // Achievements
+  "achievements.title": "მიღწევები",
+  "achievements.firstWorkout": "პირველი ვარჯიში",
+  "achievements.firstWorkoutDescription": "დაასრულე შენი პირველი ვარჯიში.",
+  "achievements.sevenDayChallenge": "7 დღიანი გამოწვევა",
+  "achievements.sevenDayChallengeDescription": "დაასრულე ვარჯიშები შვიდი დღის განმავლობაში ზედიზედ.",
+  "achievements.thirtyDayChallenge": "30 დღიანი გამოწვევა",
+  "achievements.thirtyDayChallengeDescription": "დაასრულე ვარჯიშები ოცდაათი დღის განმავლობაში ზედიზედ.",
+  "achievements.unlocked": "გახსნილია",
+  "achievements.daysLabel": "დღე",
+  "achievements.workoutsLabel": "ვარჯიშები",
+  "achievements.keepGoing": "გააგრძელე!",
   // Dashboard
   "dashboard.title": "ProFit დაფა",
   "dashboard.subtitle": "თქვენი ფიტნესის მოგზაურობა აქ იწყება",

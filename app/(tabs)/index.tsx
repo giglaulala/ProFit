@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DeviceEventEmitter } from "react-native";
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
   ImageBackground,
@@ -19,6 +20,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import VideoPlayer from "../../components/VideoPlayer";
 import Colors from "../../constants/Colors";
+import { useAchievements } from "../../hooks/useAchievements";
+import type { AchievementViewModel } from "../../hooks/useAchievements";
 import {
   getVideoByExerciseName,
   WorkoutVideo,
@@ -150,6 +153,12 @@ export default function DashboardScreen() {
     minutesExercised: 0,
   });
 
+  const {
+    achievements: achievementList,
+    loading: achievementsLoading,
+    evaluatePlan,
+  } = useAchievements();
+
   const formatStatValue = (
     value: number | null | undefined,
     suffix?: string
@@ -158,6 +167,17 @@ export default function DashboardScreen() {
       return "--";
     }
     return suffix ? `${value}${suffix}` : String(value);
+  };
+
+  const getAchievementProgressLabel = (achievement: AchievementViewModel) => {
+    if (achievement.unlocked) {
+      return t("achievements.unlocked");
+    }
+    const unit =
+      achievement.id === "first_workout"
+        ? t("achievements.workoutsLabel")
+        : t("achievements.daysLabel");
+    return `${achievement.progress}/${achievement.target} ${unit}`;
   };
 
   const workoutGoals = [
@@ -486,6 +506,9 @@ export default function DashboardScreen() {
     // Close first to avoid a re-render that shows Start button
     setShowWorkoutModal(false);
 
+    let planForEvaluation: Record<string, any> | null = null;
+    let unlockedAchievements: AchievementViewModel[] = [];
+
     // Persist completion
     try {
       if (selectedWorkout && userCalendar) {
@@ -519,10 +542,24 @@ export default function DashboardScreen() {
 
           // Update progress tracking
           await updateProgress(1, calories, totalMin);
+          planForEvaluation = updated.plan;
         }
       }
     } catch (e) {
       // ignore
+    }
+
+    try {
+      const baselinePlan =
+        planForEvaluation ?? (userCalendar && typeof userCalendar === "object"
+          ? (userCalendar as any).plan ?? null
+          : null);
+      const result = await evaluatePlan(baselinePlan ?? null);
+      if (result?.newlyUnlocked?.length) {
+        unlockedAchievements = result.newlyUnlocked;
+      }
+    } catch (err) {
+      console.warn("[Dashboard] Failed to evaluate achievements after workout:", err);
     }
 
     // Reset flow state after close
@@ -533,9 +570,15 @@ export default function DashboardScreen() {
 
     // Notify user
     setTimeout(() => {
+      const summaryMessage = `Workout Time: ${totalMin} min\nTotal Time: ${popupTimeMin} min\nCompleted: ${completedExercisesCount}`;
+      const achievementLines = unlockedAchievements.map((achievement) => `• ${t(achievement.titleKey)}`);
+      const achievementSection = achievementLines.length
+        ? `\n\n${t("achievements.unlocked")}\n${achievementLines.join("\n")}`
+        : "";
+
       showCustomAlertModal(
         t("dashboard.workoutFinished"),
-        `Workout Time: ${totalMin} min\nTotal Time: ${popupTimeMin} min\nCompleted: ${completedExercisesCount}`,
+        `${summaryMessage}${achievementSection}`,
         [{ text: "OK" }]
       );
     }, 0);
@@ -647,6 +690,7 @@ export default function DashboardScreen() {
             }
           }
           setUserCalendar(calendar);
+          await evaluatePlan(calendar?.plan ?? null);
           if (Array.isArray(calendar.selectedDays)) {
             setSelectedDays(calendar.selectedDays);
           }
@@ -672,6 +716,7 @@ export default function DashboardScreen() {
                   JSON.stringify(sanitized)
                 );
                 setUserCalendar(sanitized);
+                await evaluatePlan(sanitized?.plan ?? null);
               }
             } catch {}
           }
@@ -734,6 +779,7 @@ export default function DashboardScreen() {
           try { calendar.plan = JSON.parse(calendar.plan); } catch {}
         }
         setUserCalendar(calendar);
+        await evaluatePlan(calendar?.plan ?? null);
         if (Array.isArray(calendar.selectedDays)) setSelectedDays(calendar.selectedDays);
         setCalendarVersion((v) => v + 1);
       } catch {}
@@ -868,6 +914,7 @@ export default function DashboardScreen() {
         await AsyncStorage.setItem("userCalendar", JSON.stringify(updated));
         setUserCalendar(updated);
         setCalendarVersion((v) => v + 1);
+        await evaluatePlan(updated?.plan ?? null);
 
         // Persist to Supabase; keep local state as source of truth to avoid stale overwrites
         try {
@@ -1429,6 +1476,7 @@ export default function DashboardScreen() {
       };
       await AsyncStorage.setItem("userCalendar", JSON.stringify(cal));
       setUserCalendar(cal);
+      await evaluatePlan(cal?.plan ?? null);
     } catch (e: any) {
       alert(e.message || "Failed to load calendar");
     }
@@ -1455,6 +1503,7 @@ export default function DashboardScreen() {
       const calWithOwner = { ...cal, owner } as any;
       await AsyncStorage.setItem("userCalendar", JSON.stringify(calWithOwner));
       setUserCalendar(calWithOwner);
+      await evaluatePlan(calWithOwner?.plan ?? null);
 
       // Update freeDays to match the number of selected days
       const newFreeDays = selectedDays.length;
@@ -1689,6 +1738,7 @@ export default function DashboardScreen() {
                 JSON.stringify(sanitized)
               );
               setUserCalendar(sanitized);
+              await evaluatePlan(sanitized?.plan ?? null);
             } else {
               // Normalize plan type
               if (calendar && typeof calendar.plan === "string") {
@@ -1710,6 +1760,7 @@ export default function DashboardScreen() {
                 }
               }
               setUserCalendar(calendar);
+              await evaluatePlan(calendar?.plan ?? null);
               if (Array.isArray(calendar.selectedDays)) {
                 setSelectedDays(calendar.selectedDays);
                 setFreeDays(calendar.selectedDays.length);
@@ -2157,73 +2208,81 @@ export default function DashboardScreen() {
         {/* Achievements */}
         <View style={styles.progressAchievementsContainer}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Achievements
+            {t("achievements.title")}
           </Text>
-          <View style={styles.progressAchievementsGrid}>
-            {[
-              {
-                title: "7 Day Streak",
-                icon: "trophy",
-                color: colors.primary,
-                unlocked: true,
-              },
-              {
-                title: "First Workout",
-                icon: "star",
-                color: colors.secondary,
-                unlocked: true,
-              },
-              {
-                title: "30 Day Challenge",
-                icon: "medal",
-                color: colors.darkGreen,
-                unlocked: false,
-              },
-            ].map((achievement, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.progressAchievementCard,
-                  {
-                    backgroundColor: colors.lightGray,
-                    opacity: achievement.unlocked ? 1 : 0.5,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.progressAchievementIcon,
-                    {
-                      backgroundColor: achievement.unlocked
-                        ? achievement.color
-                        : colors.darkGray,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={achievement.icon as any}
-                    size={24}
-                    color={achievement.unlocked ? colors.black : colors.text}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.progressAchievementTitle,
-                    { color: colors.text },
-                  ]}
-                >
-                  {achievement.title}
-                </Text>
-                {achievement.unlocked && (
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={16}
-                    color={colors.primary}
-                  />
-                )}
-              </View>
-            ))}
-          </View>
+          {achievementsLoading ? (
+            <View style={styles.progressAchievementsLoading}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : (
+            <View style={styles.progressAchievementsGrid}>
+              {achievementList.map((achievement) => {
+                const accentColor =
+                  colors[achievement.colorKey] ?? colors.primary;
+                const iconBackground = achievement.unlocked
+                  ? accentColor
+                  : colors.darkGray;
+                const progressLabel = getAchievementProgressLabel(achievement);
+
+                return (
+                  <View
+                    key={achievement.id}
+                    style={[
+                      styles.progressAchievementCard,
+                      {
+                        backgroundColor: colors.lightGray,
+                        opacity: achievement.unlocked ? 1 : 0.75,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.progressAchievementIcon,
+                        { backgroundColor: iconBackground },
+                      ]}
+                    >
+                      <Ionicons
+                        name={achievement.icon as any}
+                        size={24}
+                        color={achievement.unlocked ? colors.black : colors.text}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.progressAchievementTitle,
+                        { color: colors.text },
+                      ]}
+                    >
+                      {t(achievement.titleKey)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.progressAchievementDescription,
+                        { color: colors.text + "B3" },
+                      ]}
+                    >
+                      {t(achievement.descriptionKey)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.progressAchievementProgress,
+                        { color: accentColor },
+                      ]}
+                    >
+                      {progressLabel}
+                    </Text>
+                    {achievement.unlocked && (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         {/* Weekly Stats removed (calories) */}
@@ -3317,6 +3376,11 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 10,
   },
+  progressAchievementsLoading: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
+  },
   progressAchievementsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -3342,6 +3406,17 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
     marginBottom: 4,
+  },
+  progressAchievementDescription: {
+    fontSize: 11,
+    textAlign: "center",
+    lineHeight: 14,
+    marginBottom: 6,
+  },
+  progressAchievementProgress: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 8,
   },
   modalOverlay: {
     flex: 1,
