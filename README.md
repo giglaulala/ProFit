@@ -30,6 +30,30 @@ create policy "update own settings" on trainee_settings for update using (auth.u
 npm i @supabase/supabase-js @react-native-async-storage/async-storage
 ```
 
+## AI Chat Setup
+
+The chat assistant runs through the web server at `web/src/app/api/chat/route.ts` and forwards messages to OpenAI.
+
+1. In the `web` workspace, create a `.env.local` file (or set environment variables in your hosting platform) with:
+
+   ```
+   OPENAI_API_KEY=sk-************************************
+   OPENAI_MODEL=gpt-4o-mini # optional override
+   OPENAI_API_URL=https://api.openai.com/v1/chat/completions # optional override for Azure/OpenAI-compatible  endpoints
+   ```
+
+2. Start the web server so the mobile client can reach `/api/chat`:
+
+   ```bash
+   cd web
+   npm install
+   npm run dev
+   ```
+
+3. Ensure `expo.extra.apiBaseUrl` in `app.json` points to the running web server (Expo replaces `localhost` with your LAN IP automatically).
+
+With the key in place, the in-app chat will return live AI responses instead of the placeholder text.
+
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).

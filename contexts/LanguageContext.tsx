@@ -16,6 +16,18 @@ const LanguageContext = createContext<LanguageContextType | undefined>(
 
 // English translations
 const enTranslations: Record<string, string> = {
+  // Achievements
+  "achievements.title": "Achievements",
+  "achievements.firstWorkout": "First Workout",
+  "achievements.firstWorkoutDescription": "Complete your first workout.",
+  "achievements.sevenDayChallenge": "7 Day Challenge",
+  "achievements.sevenDayChallengeDescription": "Complete workouts seven days in a row.",
+  "achievements.thirtyDayChallenge": "30 Day Challenge",
+  "achievements.thirtyDayChallengeDescription": "Complete workouts thirty days in a row.",
+  "achievements.unlocked": "Unlocked",
+  "achievements.daysLabel": "days",
+  "achievements.workoutsLabel": "workouts",
+  "achievements.keepGoing": "Keep going!",
   // Dashboard
   "dashboard.title": "ProFit Dashboard",
   "dashboard.subtitle": "Your fitness journey starts here",
@@ -58,6 +70,8 @@ const enTranslations: Record<string, string> = {
   "dashboard.shareCode": "Share Code",
   "dashboard.calendarCode": "Calendar Code",
   "dashboard.workoutCode": "Workout Code",
+  "dashboard.copyCode": "Copy Code",
+  "dashboard.copied": "Copied!",
   "dashboard.invalidCode": "Invalid Code",
   "dashboard.enterValidCode": "Enter a valid ProFit code or workout id.",
   "dashboard.detected": "Detected",
@@ -99,6 +113,8 @@ const enTranslations: Record<string, string> = {
   "dashboard.freeDaysPerWeek": "Free Days per Week",
   "dashboard.findCalendar": "Find Calendar",
   "dashboard.createCalendar": "Create Calendar",
+  "dashboard.editCalendar": "Edit Calendar",
+  "dashboard.updateCalendar": "Update Calendar",
   "dashboard.goal": "Goal",
   "dashboard.level": "Level",
   "dashboard.days": "Days",
@@ -216,6 +232,18 @@ const enTranslations: Record<string, string> = {
 
 // Georgian translations
 const kaTranslations: Record<string, string> = {
+  // Achievements
+  "achievements.title": "მიღწევები",
+  "achievements.firstWorkout": "პირველი ვარჯიში",
+  "achievements.firstWorkoutDescription": "დაასრულე შენი პირველი ვარჯიში.",
+  "achievements.sevenDayChallenge": "7 დღიანი გამოწვევა",
+  "achievements.sevenDayChallengeDescription": "დაასრულე ვარჯიშები შვიდი დღის განმავლობაში ზედიზედ.",
+  "achievements.thirtyDayChallenge": "30 დღიანი გამოწვევა",
+  "achievements.thirtyDayChallengeDescription": "დაასრულე ვარჯიშები ოცდაათი დღის განმავლობაში ზედიზედ.",
+  "achievements.unlocked": "გახსნილია",
+  "achievements.daysLabel": "დღე",
+  "achievements.workoutsLabel": "ვარჯიშები",
+  "achievements.keepGoing": "გააგრძელე!",
   // Dashboard
   "dashboard.title": "ProFit დაფა",
   "dashboard.subtitle": "თქვენი ფიტნესის მოგზაურობა აქ იწყება",
@@ -258,6 +286,8 @@ const kaTranslations: Record<string, string> = {
   "dashboard.shareCode": "გაზიარების კოდი",
   "dashboard.calendarCode": "კალენდრის კოდი",
   "dashboard.workoutCode": "ვარჯიშის კოდი",
+  "dashboard.copyCode": "დააკოპირე კოდი",
+  "dashboard.copied": "დაკოპირდა!",
   "dashboard.invalidCode": "არასწორი კოდი",
   "dashboard.enterValidCode": "შეიყვანეთ სწორი ProFit კოდი ან ვარჯიშის იდ.",
   "dashboard.detected": "აღმოჩენილი",
@@ -299,6 +329,8 @@ const kaTranslations: Record<string, string> = {
   "dashboard.freeDaysPerWeek": "უფასო დღეები კვირაში",
   "dashboard.findCalendar": "კალენდრის პოვნა",
   "dashboard.createCalendar": "კალენდრის შექმნა",
+  "dashboard.editCalendar": "კალენდრის რედაქტირება",
+  "dashboard.updateCalendar": "კალენდრის განახლება",
   "dashboard.goal": "მიზანი",
   "dashboard.level": "დონე",
   "dashboard.days": "დღეები",

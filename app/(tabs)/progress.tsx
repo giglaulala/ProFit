@@ -1,15 +1,27 @@
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ActivityIndicator, StyleSheet, View, Text, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 
 import Colors from '../../constants/Colors';
+import { useAchievements } from '../../hooks/useAchievements';
+import type { AchievementViewModel } from '../../hooks/useAchievements';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
 export default function ProgressScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { t } = useLanguage();
+  const {
+    achievements: achievementList,
+    loading: achievementsLoading,
+    evaluatePlan,
+  } = useAchievements();
 
   const weeklyStats = [
     { day: 'Mon', value: 45, target: 60 },
@@ -21,18 +33,51 @@ export default function ProgressScreen() {
     { day: 'Sun', value: 40, target: 60 },
   ];
 
-  const achievements = [
-    { title: '7 Day Streak', icon: 'trophy', color: colors.primary, unlocked: true },
-    { title: 'First Workout', icon: 'star', color: colors.secondary, unlocked: true },
-    { title: '100 Calories', icon: 'flame', color: colors.accent, unlocked: true },
-    { title: '30 Day Challenge', icon: 'medal', color: colors.darkGreen, unlocked: false },
-  ];
-
   const monthlyGoals = [
     { title: 'Workouts', current: 12, target: 20, icon: 'fitness' },
     { title: 'Calories', current: 8500, target: 12000, icon: 'flame' },
     { title: 'Minutes', current: 540, target: 900, icon: 'time' },
   ];
+
+  const getAchievementProgressLabel = (achievement: AchievementViewModel) => {
+    if (achievement.unlocked) {
+      return t('achievements.unlocked');
+    }
+    const unit =
+      achievement.id === 'first_workout'
+        ? t('achievements.workoutsLabel')
+        : t('achievements.daysLabel');
+    return `${achievement.progress}/${achievement.target} ${unit}`;
+  };
+
+  const syncAchievements = useCallback(async () => {
+    try {
+      const calStr = await AsyncStorage.getItem('userCalendar');
+      if (!calStr) {
+        await evaluatePlan(null);
+        return;
+      }
+      const calendar = JSON.parse(calStr);
+      if (calendar && typeof calendar.plan === 'string') {
+        try {
+          calendar.plan = JSON.parse(calendar.plan);
+        } catch {}
+      }
+      await evaluatePlan(calendar?.plan ?? null);
+    } catch (err) {
+      console.warn('[Progress] Failed to sync achievements:', err);
+    }
+  }, [evaluatePlan]);
+
+  useEffect(() => {
+    syncAchievements();
+  }, [syncAchievements]);
+
+  useFocusEffect(
+    useCallback(() => {
+      syncAchievements();
+    }, [syncAchievements])
+  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -116,42 +161,73 @@ export default function ProgressScreen() {
 
         {/* Achievements */}
         <View style={styles.achievementsContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Achievements</Text>
-          <View style={styles.achievementsGrid}>
-            {achievements.map((achievement, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.achievementCard,
-                  {
-                    backgroundColor: colors.lightGray,
-                    opacity: achievement.unlocked ? 1 : 0.5,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.achievementIcon,
-                    {
-                      backgroundColor: achievement.unlocked ? achievement.color : colors.darkGray,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={achievement.icon as any}
-                    size={24}
-                    color={achievement.unlocked ? colors.black : colors.text}
-                  />
-                </View>
-                <Text style={[styles.achievementTitle, { color: colors.text }]}>
-                  {achievement.title}
-                </Text>
-                {achievement.unlocked && (
-                  <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-                )}
-              </View>
-            ))}
-          </View>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            {t('achievements.title')}
+          </Text>
+          {achievementsLoading ? (
+            <View style={styles.achievementsLoading}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : (
+            <View style={styles.achievementsGrid}>
+              {achievementList.map((achievement) => {
+                const accentColor =
+                  colors[achievement.colorKey] ?? colors.primary;
+                const iconBackground = achievement.unlocked
+                  ? accentColor
+                  : colors.darkGray;
+                const progressLabel = getAchievementProgressLabel(achievement);
+
+                return (
+                  <View
+                    key={achievement.id}
+                    style={[
+                      styles.achievementCard,
+                      {
+                        backgroundColor: colors.lightGray,
+                        opacity: achievement.unlocked ? 1 : 0.75,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.achievementIcon,
+                        { backgroundColor: iconBackground },
+                      ]}
+                    >
+                      <Ionicons
+                        name={achievement.icon as any}
+                        size={24}
+                        color={achievement.unlocked ? colors.black : colors.text}
+                      />
+                    </View>
+                    <Text style={[styles.achievementTitle, { color: colors.text }]}>
+                      {t(achievement.titleKey)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.achievementDescription,
+                        { color: colors.text + 'B3' },
+                      ]}
+                    >
+                      {t(achievement.descriptionKey)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.achievementProgress,
+                        { color: accentColor },
+                      ]}
+                    >
+                      {progressLabel}
+                    </Text>
+                    {achievement.unlocked && (
+                      <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         {/* Personal Records */}
@@ -315,6 +391,11 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 10,
   },
+  achievementsLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+  },
   achievementsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -340,6 +421,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 4,
+  },
+  achievementDescription: {
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 14,
+    marginBottom: 6,
+  },
+  achievementProgress: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   recordsContainer: {
     padding: 20,

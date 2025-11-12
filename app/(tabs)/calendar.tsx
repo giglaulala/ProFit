@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import * as Clipboard from "expo-clipboard";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DeviceEventEmitter,
   Dimensions,
@@ -53,6 +54,35 @@ interface WorkoutDetails {
   exercises: Exercise[];
 }
 
+type GoalType = "weight_loss" | "muscle_gain" | "maintenance" | "strength";
+type LevelType =
+  | "amateur"
+  | "beginner"
+  | "medium"
+  | "experienced"
+  | "professional";
+
+const GOAL_OPTIONS: GoalType[] = [
+  "weight_loss",
+  "muscle_gain",
+  "maintenance",
+  "strength",
+];
+
+const LEVEL_OPTIONS: LevelType[] = [
+  "amateur",
+  "beginner",
+  "medium",
+  "experienced",
+  "professional",
+];
+
+const isGoalValue = (value: any): value is GoalType =>
+  GOAL_OPTIONS.includes(value as GoalType);
+
+const isLevelValue = (value: any): value is LevelType =>
+  LEVEL_OPTIONS.includes(value as LevelType);
+
 export default function CalendarScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
@@ -68,13 +98,15 @@ export default function CalendarScreen() {
     number | null
   >(null);
   const [completedExercisesCount, setCompletedExercisesCount] = useState(0);
-  const [weight, setWeight] = useState(75);
-  const [height, setHeight] = useState(175);
-  const [freeDays, setFreeDays] = useState(3);
+  const [weight, setWeight] = useState<number | null>(null);
+  const [height, setHeight] = useState<number | null>(null);
+  const [freeDays, setFreeDays] = useState<number | null>(null);
+  const [isSettingsLoading, setIsSettingsLoading] = useState(true);
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [showHeightModal, setShowHeightModal] = useState(false);
   const [showFreeDaysModal, setShowFreeDaysModal] = useState(false);
-  const [selectedWorkoutGoal, setSelectedWorkoutGoal] = useState("weight_loss");
+  const [selectedWorkoutGoal, setSelectedWorkoutGoal] =
+    useState<GoalType>("weight_loss");
   const [showAllPlans, setShowAllPlans] = useState(false);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<WorkoutVideo | null>(null);
@@ -92,6 +124,20 @@ export default function CalendarScreen() {
     totalMinutes: number;
   }>({ totalCompleted: 0, totalMinutes: 0 });
   const [showGreeting, setShowGreeting] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [hasCopiedShareCode, setHasCopiedShareCode] = useState(false);
+  const [isEditingCalendar, setIsEditingCalendar] = useState(false);
+  const [isUpdatingCalendar, setIsUpdatingCalendar] = useState(false);
+
+  const formatStatValue = (
+    value: number | null | undefined,
+    suffix?: string
+  ) => {
+    if (value === null || value === undefined) {
+      return "--";
+    }
+    return suffix ? `${value}${suffix}` : String(value);
+  };
 
   // Custom Alert States
   const [showCustomAlert, setShowCustomAlert] = useState(false);
@@ -99,6 +145,9 @@ export default function CalendarScreen() {
   const [calendars, setCalendars] = useState<any[]>([]);
   const scrollRef = useRef<ScrollView>(null);
   const createSectionYRef = useRef(0);
+  const copyFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const router = useRouter();
   // Deprecated: local calendar tracking removed; rely solely on Supabase
 
@@ -187,6 +236,24 @@ export default function CalendarScreen() {
     loadUserCalendars();
     checkCalendarGreeting();
   }, [checkCalendarGreeting, clearLegacyLocalCalendar]);
+
+  useEffect(() => {
+    return () => {
+      if (copyFeedbackTimeoutRef.current) {
+        clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showShareModal && copyFeedbackTimeoutRef.current) {
+      clearTimeout(copyFeedbackTimeoutRef.current);
+      copyFeedbackTimeoutRef.current = null;
+    }
+    if (!showShareModal) {
+      setHasCopiedShareCode(false);
+    }
+  }, [showShareModal]);
 
   // Refresh calendars list when returning to this tab
   useFocusEffect(
@@ -359,12 +426,8 @@ export default function CalendarScreen() {
   const [completedExerciseIdxs, setCompletedExerciseIdxs] = useState<
     Set<number>
   >(new Set());
-  const [goal, setGoal] = useState<
-    "weight_loss" | "muscle_gain" | "maintenance" | "strength"
-  >("weight_loss");
-  const [level, setLevel] = useState<
-    "amateur" | "beginner" | "medium" | "experienced" | "professional"
-  >("amateur");
+  const [goal, setGoal] = useState<GoalType>("weight_loss");
+  const [level, setLevel] = useState<LevelType>("amateur");
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [firstName, setFirstName] = useState<string>("");
 
@@ -668,6 +731,25 @@ export default function CalendarScreen() {
     setShowCustomAlert(true);
   };
 
+  const handleCopyShareCode = useCallback(async () => {
+    if (!userCalendar?.shareCode) {
+      return;
+    }
+    try {
+      await Clipboard.setStringAsync(userCalendar.shareCode);
+      setHasCopiedShareCode(true);
+      if (copyFeedbackTimeoutRef.current) {
+        clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+      copyFeedbackTimeoutRef.current = setTimeout(() => {
+        setHasCopiedShareCode(false);
+        copyFeedbackTimeoutRef.current = null;
+      }, 2000);
+    } catch (error) {
+      console.error("Failed to copy share code:", error);
+    }
+  }, [userCalendar?.shareCode]);
+
   // Get all unique muscles worked in the current workout
   const getAllMusclesWorked = (): string[] => {
     if (calendarExercises.length > 0) {
@@ -773,10 +855,6 @@ export default function CalendarScreen() {
           "Incomplete Workout",
           `You have completed ${completedCount} out of ${totalExercises} exercises. Are you sure you want to finish the workout?`,
           [
-            {
-              text: "Cancel",
-              style: "cancel",
-            },
             {
               text: "Finish Anyway",
               style: "destructive",
@@ -1170,6 +1248,8 @@ export default function CalendarScreen() {
           message: e instanceof Error ? e.message : String(e),
           stack: e instanceof Error ? e.stack : undefined,
         });
+      } finally {
+        setIsSettingsLoading(false);
       }
     })();
   }, []);
@@ -1220,9 +1300,9 @@ export default function CalendarScreen() {
   }, []); // Run once on mount as fallback
 
   const persistTraineeSettings = async (next: {
-    weight?: number;
-    height?: number;
-    freeDays?: number;
+    weight?: number | null;
+    height?: number | null;
+    freeDays?: number | null;
     goal?: string;
   }) => {
     try {
@@ -1233,9 +1313,9 @@ export default function CalendarScreen() {
         {
           id: userId,
           goal: next.goal ?? selectedWorkoutGoal,
-          weight: next.weight ?? weight,
-          height: next.height ?? height,
-          free_days: next.freeDays ?? freeDays,
+          weight: next.weight ?? weight ?? null,
+          height: next.height ?? height ?? null,
+          free_days: next.freeDays ?? freeDays ?? null,
         },
         { onConflict: "id" }
       );
@@ -1348,8 +1428,7 @@ export default function CalendarScreen() {
             text: t("dashboard.unmark"),
             style: "destructive",
             onPress: () => unmarkCompleted(date),
-          },
-          { text: t("dashboard.cancel"), style: "cancel" },
+          }
         ]
       );
       return;
@@ -1448,7 +1527,11 @@ export default function CalendarScreen() {
     );
   };
 
-  const generateCalendar = () => {
+  const buildCalendarPlan = (
+    goalValue: GoalType,
+    levelValue: LevelType,
+    selectedDaysValue: string[]
+  ) => {
     const plan: Record<string, any> = {};
     const today = new Date();
     const end = new Date();
@@ -1460,16 +1543,21 @@ export default function CalendarScreen() {
     for (let dt = new Date(today); dt <= end; dt.setDate(dt.getDate() + 1)) {
       const di = dayIdx(dt);
       const dn = dowShort(di);
-      if (!selectedDays.includes(dn)) continue;
+      if (!selectedDaysValue.includes(dn)) continue;
       const iso = dt.toISOString().slice(0, 10);
 
-      const dayPlan = buildDailyPlanForGoal(goal, level, di);
+      const dayPlan = buildDailyPlanForGoal(goalValue, levelValue, di);
       plan[iso] = {
         date: iso,
         entries: dayPlan.entries,
         restAfterEachSec: dayPlan.restAfterEachSec,
       };
     }
+    return plan;
+  };
+
+  const generateCalendar = () => {
+    const plan = buildCalendarPlan(goal, level, selectedDays);
     const shareId = `ProFit-${Math.random()
       .toString(36)
       .slice(2, 8)
@@ -1995,15 +2083,145 @@ export default function CalendarScreen() {
     }
   };
 
+  const handleCancelEdit = () => {
+    if (userCalendar) {
+      const restoredDays = Array.isArray(userCalendar.selectedDays)
+        ? userCalendar.selectedDays
+        : computeSelectedDaysFromPlan(userCalendar.plan);
+      if (restoredDays.length) {
+        setSelectedDays(restoredDays);
+      }
+      if (isGoalValue(userCalendar.goal)) {
+        setGoal(userCalendar.goal);
+        setSelectedWorkoutGoal(userCalendar.goal);
+      } else if (isGoalValue(selectedWorkoutGoal)) {
+        setGoal(selectedWorkoutGoal);
+      }
+      if (isLevelValue(userCalendar.level)) {
+        setLevel(userCalendar.level);
+      }
+    }
+    setShowAllPlans(false);
+    setIsEditingCalendar(false);
+  };
+
+  const handleEditCalendarPress = () => {
+    if (!userCalendar) return;
+
+    if (isGoalValue(userCalendar.goal)) {
+      setGoal(userCalendar.goal);
+      setSelectedWorkoutGoal(userCalendar.goal);
+    } else if (isGoalValue(selectedWorkoutGoal)) {
+      setGoal(selectedWorkoutGoal);
+    }
+
+    if (isLevelValue(userCalendar.level)) {
+      setLevel(userCalendar.level);
+    }
+
+    const currentDays = Array.isArray(userCalendar.selectedDays)
+      ? userCalendar.selectedDays
+      : computeSelectedDaysFromPlan(userCalendar.plan);
+    if (currentDays.length) {
+      setSelectedDays(currentDays);
+    }
+
+    setIsEditingCalendar(true);
+    setShowPlansMenu(false);
+    setShowAllPlans(false);
+    requestAnimationFrame(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTo({
+          y: createSectionYRef.current,
+          animated: true,
+        });
+      }
+    });
+  };
+
+  const handleUpdateCalendar = async () => {
+    if (!userCalendar) return;
+    if (selectedDays.length === 0) {
+      alert(t("dashboard.pickAtLeastOneDay"));
+      return;
+    }
+
+    setIsUpdatingCalendar(true);
+    try {
+      const updatedGoal = goal;
+      const updatedLevel = level;
+      const plan = buildCalendarPlan(updatedGoal, updatedLevel, selectedDays);
+
+      const { data: userInfo } = await supabase.auth.getUser();
+      const owner = userInfo.user?.id ?? null;
+      if (!owner) {
+        alert("Sign in required");
+        return;
+      }
+
+      if (!userCalendar.id) {
+        alert("Missing calendar identifier");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("calendars")
+        .update({
+          plan,
+          goal: updatedGoal,
+          level: updatedLevel,
+        })
+        .eq("id", userCalendar.id)
+        .eq("owner", owner);
+
+      if (error) {
+        throw error;
+      }
+
+      const updatedCalendar = {
+        ...userCalendar,
+        plan,
+        goal: updatedGoal,
+        level: updatedLevel,
+        selectedDays: [...selectedDays],
+      };
+
+      await AsyncStorage.setItem(
+        "userCalendar",
+        JSON.stringify(updatedCalendar)
+      );
+      setUserCalendar(updatedCalendar);
+      setSelectedWorkoutGoal(updatedGoal);
+      setLevel(updatedLevel);
+      setIsEditingCalendar(false);
+      setShowPlansMenu(false);
+      setShowAllPlans(false);
+      await loadUserCalendars();
+
+      const newFreeDays = selectedDays.length;
+      setFreeDays(newFreeDays);
+      persistTraineeSettings({ freeDays: newFreeDays, goal: updatedGoal });
+
+      alert("Calendar updated");
+    } catch (e: any) {
+      alert(e.message || "Failed to update calendar");
+    } finally {
+      setIsUpdatingCalendar(false);
+    }
+  };
+
   const handleWeightPress = () => {
+    if (isSettingsLoading) return;
     setShowWeightModal(true);
   };
 
   const handleHeightPress = () => {
+    if (isSettingsLoading) return;
     setShowHeightModal(true);
   };
 
   const handleFreeDaysPress = () => {
+    if (isSettingsLoading) return;
     setShowFreeDaysModal(true);
   };
 
@@ -2280,10 +2498,16 @@ export default function CalendarScreen() {
     }
   };
 
+  const safeWeight = weight ?? 75;
+  const safeHeight = height ?? 175;
+  const calendarFreeDays = userCalendar ? selectedDays.length : null;
+  const visibleFreeDays = calendarFreeDays ?? freeDays;
+  const editableFreeDays = freeDays ?? calendarFreeDays ?? 3;
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={["top", "bottom", "right", "left"]}
+      edges={["right", "left"]}
     >
       <ScrollView
         ref={scrollRef}
@@ -2578,58 +2802,66 @@ export default function CalendarScreen() {
             onDatePress={handleCalendarDatePress}
           />
           {/* Find/Create controls */}
-          {!userCalendar && (
-            <View style={{ marginTop: 16, gap: 12 }}>
-              <View
-                onLayout={(e) => {
-                  createSectionYRef.current = e.nativeEvent.layout.y;
-                }}
-                style={[
-                  styles.paramsCard,
-                  { backgroundColor: colors.darkGray },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: colors.text,
-                    fontWeight: "600",
-                    marginBottom: 8,
-                  }}
-                >
-                  {t("dashboard.findCalendar")}
-                </Text>
+          {(!userCalendar || isEditingCalendar) && (
+            <View
+              style={{ marginTop: 16, gap: 12 }}
+              onLayout={(e) => {
+                createSectionYRef.current = e.nativeEvent.layout.y;
+              }}
+            >
+              {!isEditingCalendar && !userCalendar && (
                 <View
-                  style={{ flexDirection: "row", gap: 8, alignItems: "center" }}
+                  style={[
+                    styles.paramsCard,
+                    { backgroundColor: colors.darkGray },
+                  ]}
                 >
-                  <TextInput
+                  <Text
                     style={{
-                      flex: 1,
-                      padding: 10,
-                      borderRadius: 8,
-                      backgroundColor: colors.lightGray,
                       color: colors.text,
-                    }}
-                    placeholder="ProFit-XXX"
-                    placeholderTextColor={colors.text}
-                    value={joinCode}
-                    onChangeText={setJoinCode}
-                    autoCapitalize="characters"
-                  />
-                  <TouchableOpacity
-                    onPress={handleJoinCalendar}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 10,
-                      borderRadius: 8,
-                      backgroundColor: colors.primary,
+                      fontWeight: "600",
+                      marginBottom: 8,
                     }}
                   >
-                    <Text style={{ color: colors.black, fontWeight: "600" }}>
-                      {t("dashboard.join")}
-                    </Text>
-                  </TouchableOpacity>
+                    {t("dashboard.findCalendar")}
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      gap: 8,
+                      alignItems: "center",
+                    }}
+                  >
+                    <TextInput
+                      style={{
+                        flex: 1,
+                        padding: 10,
+                        borderRadius: 8,
+                        backgroundColor: colors.lightGray,
+                        color: colors.text,
+                      }}
+                      placeholder="ProFit-XXX"
+                      placeholderTextColor={colors.text}
+                      value={joinCode}
+                      onChangeText={setJoinCode}
+                      autoCapitalize="characters"
+                    />
+                    <TouchableOpacity
+                      onPress={handleJoinCalendar}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        borderRadius: 8,
+                        backgroundColor: colors.primary,
+                      }}
+                    >
+                      <Text style={{ color: colors.black, fontWeight: "600" }}>
+                        {t("dashboard.join")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
+              )}
 
               <View
                 style={[
@@ -2644,7 +2876,11 @@ export default function CalendarScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  {t("dashboard.createCalendar")}
+                  {isEditingCalendar
+                    ? t("dashboard.editCalendar") === "dashboard.editCalendar"
+                      ? "Edit Calendar"
+                      : t("dashboard.editCalendar")
+                    : t("dashboard.createCalendar")}
                 </Text>
                 <Text style={{ color: colors.text, marginBottom: 6 }}>
                   {t("dashboard.goal")}
@@ -2660,7 +2896,7 @@ export default function CalendarScreen() {
                   ].map(([val, label]) => (
                     <TouchableOpacity
                       key={val}
-                      onPress={() => setGoal(val as any)}
+                      onPress={() => isGoalValue(val) && setGoal(val)}
                       style={{
                         paddingHorizontal: 12,
                         paddingVertical: 8,
@@ -2695,7 +2931,7 @@ export default function CalendarScreen() {
                   ].map(([val, label]) => (
                     <TouchableOpacity
                       key={val}
-                      onPress={() => setLevel(val as any)}
+                      onPress={() => isLevelValue(val) && setLevel(val)}
                       style={{
                         paddingHorizontal: 12,
                         paddingVertical: 8,
@@ -2756,7 +2992,10 @@ export default function CalendarScreen() {
                 </View>
 
                 <TouchableOpacity
-                  onPress={handleCreateCalendar}
+                  onPress={
+                    isEditingCalendar ? handleUpdateCalendar : handleCreateCalendar
+                  }
+                  disabled={isUpdatingCalendar}
                   style={{
                     marginTop: 10,
                     alignSelf: "flex-start",
@@ -2764,20 +3003,60 @@ export default function CalendarScreen() {
                     paddingVertical: 10,
                     borderRadius: 10,
                     backgroundColor: colors.primary,
+                    opacity: isUpdatingCalendar ? 0.6 : 1,
                   }}
                 >
                   <Text style={{ color: colors.black, fontWeight: "600" }}>
-                    {t("dashboard.generateCalendar")}
+                    {isEditingCalendar
+                      ? t("dashboard.updateCalendar") ===
+                        "dashboard.updateCalendar"
+                        ? "Update Calendar"
+                        : t("dashboard.updateCalendar")
+                      : t("dashboard.generateCalendar")}
                   </Text>
                 </TouchableOpacity>
+
+                {isEditingCalendar && (
+                  <TouchableOpacity
+                    onPress={handleCancelEdit}
+                    style={{
+                      marginTop: 10,
+                      alignSelf: "flex-start",
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      borderRadius: 10,
+                      backgroundColor: colors.darkGray,
+                    }}
+                  >
+                    <Text style={{ color: colors.text, fontWeight: "600" }}>
+                      {t("dashboard.cancel") === "dashboard.cancel"
+                        ? "Cancel"
+                        : t("dashboard.cancel")}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           )}
 
           {userCalendar && (
-            <View style={{ marginTop: 12, flexDirection: "row", gap: 8 }}>
+            <View
+              style={{
+                marginTop: 12,
+                flexDirection: "row",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
               <TouchableOpacity
-                onPress={() => alert(`Share: ${userCalendar.shareCode}`)}
+                onPress={() => {
+                  if (copyFeedbackTimeoutRef.current) {
+                    clearTimeout(copyFeedbackTimeoutRef.current);
+                    copyFeedbackTimeoutRef.current = null;
+                  }
+                  setHasCopiedShareCode(false);
+                  setShowShareModal(true);
+                }}
                 style={{
                   paddingHorizontal: 10,
                   paddingVertical: 6,
@@ -2790,11 +3069,24 @@ export default function CalendarScreen() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
+                onPress={handleEditCalendarPress}
+                disabled={isEditingCalendar || isUpdatingCalendar}
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor: colors.darkGray,
+                  opacity: isEditingCalendar || isUpdatingCalendar ? 0.6 : 1,
+                }}
+              >
+                <Text style={{ color: colors.text }}>
+                  {t("dashboard.editCalendar") === "dashboard.editCalendar"
+                    ? "Edit"
+                    : t("dashboard.editCalendar")}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
                 onPress={() => {
-                  const cancelText =
-                    t("dashboard.cancel") === "dashboard.cancel"
-                      ? "Cancel"
-                      : t("dashboard.cancel");
                   const deleteText =
                     t("dashboard.delete") === "dashboard.delete"
                       ? "Delete"
@@ -2803,7 +3095,6 @@ export default function CalendarScreen() {
                     "Delete calendar",
                     "This will permanently delete your calendar and progress. Continue?",
                     [
-                      { text: cancelText },
                       {
                         text: deleteText,
                         onPress: async () => {
@@ -3368,7 +3659,7 @@ export default function CalendarScreen() {
 
             <View style={styles.editModalBody}>
               <Text style={[styles.editModalLabel, { color: colors.text }]}>
-                Current Weight: {weight}kg
+                Current Weight: {formatStatValue(weight, "kg")}
               </Text>
               <View style={styles.numberInputContainer}>
                 <TouchableOpacity
@@ -3376,19 +3667,23 @@ export default function CalendarScreen() {
                     styles.numberButton,
                     { backgroundColor: colors.darkGray },
                   ]}
-                  onPress={() => handleWeightChange(Math.max(30, weight - 1))}
+                  onPress={() =>
+                    handleWeightChange(Math.max(30, safeWeight - 1))
+                  }
                 >
                   <Ionicons name="remove" size={24} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.numberInput, { color: colors.primary }]}>
-                  {weight}
+                  {weight ?? safeWeight}
                 </Text>
                 <TouchableOpacity
                   style={[
                     styles.numberButton,
                     { backgroundColor: colors.darkGray },
                   ]}
-                  onPress={() => handleWeightChange(Math.min(200, weight + 1))}
+                  onPress={() =>
+                    handleWeightChange(Math.min(200, safeWeight + 1))
+                  }
                 >
                   <Ionicons name="add" size={24} color={colors.primary} />
                 </TouchableOpacity>
@@ -3426,7 +3721,7 @@ export default function CalendarScreen() {
 
             <View style={styles.editModalBody}>
               <Text style={[styles.editModalLabel, { color: colors.text }]}>
-                Current Height: {height}cm
+                Current Height: {formatStatValue(height, "cm")}
               </Text>
               <View style={styles.numberInputContainer}>
                 <TouchableOpacity
@@ -3434,19 +3729,23 @@ export default function CalendarScreen() {
                     styles.numberButton,
                     { backgroundColor: colors.darkGray },
                   ]}
-                  onPress={() => handleHeightChange(Math.max(100, height - 1))}
+                  onPress={() =>
+                    handleHeightChange(Math.max(100, safeHeight - 1))
+                  }
                 >
                   <Ionicons name="remove" size={24} color={colors.secondary} />
                 </TouchableOpacity>
                 <Text style={[styles.numberInput, { color: colors.secondary }]}>
-                  {height}
+                  {height ?? safeHeight}
                 </Text>
                 <TouchableOpacity
                   style={[
                     styles.numberButton,
                     { backgroundColor: colors.darkGray },
                   ]}
-                  onPress={() => handleHeightChange(Math.min(250, height + 1))}
+                  onPress={() =>
+                    handleHeightChange(Math.min(250, safeHeight + 1))
+                  }
                 >
                   <Ionicons name="add" size={24} color={colors.secondary} />
                 </TouchableOpacity>
@@ -3484,7 +3783,8 @@ export default function CalendarScreen() {
 
             <View style={styles.editModalBody}>
               <Text style={[styles.editModalLabel, { color: colors.text }]}>
-                {t("dashboard.freeDaysPerWeek")}: {freeDays}
+                {t("dashboard.freeDaysPerWeek")}:{" "}
+                {formatStatValue(visibleFreeDays ?? editableFreeDays)}
               </Text>
               <View style={styles.numberInputContainer}>
                 <TouchableOpacity
@@ -3493,13 +3793,13 @@ export default function CalendarScreen() {
                     { backgroundColor: colors.darkGray },
                   ]}
                   onPress={() =>
-                    handleFreeDaysChange(Math.max(0, freeDays - 1))
+                    handleFreeDaysChange(Math.max(0, editableFreeDays - 1))
                   }
                 >
                   <Ionicons name="remove" size={24} color={colors.accent} />
                 </TouchableOpacity>
                 <Text style={[styles.numberInput, { color: colors.accent }]}>
-                  {freeDays}
+                  {editableFreeDays}
                 </Text>
                 <TouchableOpacity
                   style={[
@@ -3507,7 +3807,7 @@ export default function CalendarScreen() {
                     { backgroundColor: colors.darkGray },
                   ]}
                   onPress={() =>
-                    handleFreeDaysChange(Math.min(7, freeDays + 1))
+                    handleFreeDaysChange(Math.min(7, editableFreeDays + 1))
                   }
                 >
                   <Ionicons name="add" size={24} color={colors.accent} />
@@ -3516,6 +3816,87 @@ export default function CalendarScreen() {
               <Text style={[styles.editModalUnit, { color: colors.text }]}>
                 days per week
               </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Share Calendar Modal */}
+      <Modal
+        visible={showShareModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowShareModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {t("dashboard.shareCode")}
+              </Text>
+              <TouchableOpacity onPress={() => setShowShareModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.shareModalBody}>
+              <Text
+                style={[styles.shareModalDescription, { color: colors.text }]}
+              >
+                {t("dashboard.calendarCode")}
+              </Text>
+              <View
+                style={[
+                  styles.shareCodeContainer,
+                  {
+                    backgroundColor: colors.darkGray,
+                    borderColor: colors.lightGray,
+                  },
+                ]}
+              >
+                <Text
+                  selectable
+                  style={[
+                    styles.shareCodeText,
+                    { color: colors.accent || colors.primary },
+                  ]}
+                >
+                  {userCalendar?.shareCode ?? "--"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.copyButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleCopyShareCode}
+                activeOpacity={0.9}
+              >
+                <Ionicons
+                  name={hasCopiedShareCode ? "checkmark" : "copy-outline"}
+                  size={16}
+                  color={colors.black}
+                />
+                <Text
+                  style={[styles.copyButtonText, { color: colors.black }]}
+                >
+                  {hasCopiedShareCode
+                    ? t("dashboard.copied") ?? "Copied!"
+                    : t("dashboard.copyCode") ?? "Copy Code"}
+                </Text>
+              </TouchableOpacity>
+              {hasCopiedShareCode && (
+                <Text
+                  style={[styles.copySuccessText, { color: colors.text }]}
+                >
+                  {t("dashboard.copied") ?? "Copied!"}
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -4010,6 +4391,42 @@ const styles = StyleSheet.create({
   modalBody: {
     maxHeight: 400,
   },
+  shareModalBody: {
+    gap: 16,
+  },
+  shareModalDescription: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  shareCodeContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  shareCodeText: {
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 1.5,
+  },
+  copyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  copyButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  copySuccessText: {
+    fontSize: 12,
+    textAlign: "center",
+  },
   exerciseCard: {
     padding: 15,
     borderRadius: 12,
@@ -4221,7 +4638,9 @@ const styles = StyleSheet.create({
   },
   alertButtons: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "flex-end",
+    alignContent: "flex-end",
     gap: 12,
   },
   alertButton: {
@@ -4230,6 +4649,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     minWidth: 80,
     alignItems: "center",
+    justifyContent: "center",
+    maxWidth: "100%",
   },
   alertButtonText: {
     fontSize: 16,

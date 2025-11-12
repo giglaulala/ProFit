@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { router } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   KeyboardAvoidingView,
@@ -24,13 +25,71 @@ interface Message {
   timestamp: Date;
 }
 
+type ChatRole = "system" | "user" | "assistant";
+
+type ExpoExtra = {
+  apiBaseUrl?: string;
+};
+
+const getExpoExtra = (): ExpoExtra => {
+  return (
+    (Constants?.expoConfig?.extra ||
+      (Constants as any)?.manifest?.extra ||
+      {}) as ExpoExtra
+  );
+};
+
+const sanitizeHostUri = (hostUri?: string | null) => {
+  if (!hostUri) {
+    return null;
+  }
+
+  const cleaned = hostUri.replace(/^https?:\/\//i, "");
+  const [host] = cleaned.split(":");
+  return host || null;
+};
+
+const resolveApiBaseUrl = (): string | null => {
+  const extra = getExpoExtra();
+  const rawUrl = extra?.apiBaseUrl?.trim();
+
+  if (!rawUrl) {
+    console.warn(
+      "API base URL is missing. Set expo.extra.apiBaseUrl in app.json to enable chat."
+    );
+    return null;
+  }
+
+  try {
+    const url = new URL(rawUrl);
+    const localhostHosts = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
+    if (localhostHosts.has(url.hostname)) {
+      const hostUri =
+        Constants?.expoConfig?.hostUri || (Constants as any)?.manifest?.hostUri;
+      const resolvedHost = sanitizeHostUri(hostUri);
+      if (resolvedHost) {
+        url.hostname = resolvedHost;
+      }
+    }
+    return url.toString().replace(/\/$/, "");
+  } catch (error) {
+    console.warn(
+      "Failed to normalize apiBaseUrl. Falling back to raw value.",
+      error
+    );
+    return rawUrl.replace(/\/$/, "");
+  }
+};
+
 export default function ChatScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
+  const apiBaseUrl = useMemo(() => resolveApiBaseUrl(), []);
+  const scrollViewRef = useRef<ScrollView | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "Hello! I'm your ProFit AI assistant. This chat feature is currently under construction and will be available soon. Thank you for your patience!",
+      text: "Hi! I'm your ProFit AI assistant. Ask me anything about workouts, nutrition, or staying motivated and I'll share personalized guidance.",
       isUser: false,
       timestamp: new Date(),
     },
@@ -73,30 +132,91 @@ export default function ChatScreen() {
     }
   }, [isLoading]);
 
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      });
+    }
+  }, [messages, isLoading]);
+
   const handleSendMessage = async () => {
-    if (inputText.trim()) {
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        text: inputText,
-        isUser: true,
+    if (!inputText.trim() || isLoading) {
+      return;
+    }
+
+    const userText = inputText.trim();
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      text: userText,
+      isUser: true,
+      timestamp: new Date(),
+    };
+
+    const pendingMessages = [...messages, newMessage];
+    setMessages(pendingMessages);
+    setInputText("");
+    setIsLoading(true);
+
+    try {
+      if (!apiBaseUrl) {
+        throw new Error("API base URL is not configured");
+      }
+
+      const endpoint = `${apiBaseUrl}/api/chat`;
+      const chatHistory = pendingMessages.map((message) => ({
+        role: (message.isUser ? "user" : "assistant") as ChatRole,
+        content: message.text,
+      }));
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          input: userText,
+          messages: chatHistory,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorPayload = await response
+          .json()
+          .catch(() => ({ error: response.statusText }));
+        throw new Error(
+          `Chat request failed: ${
+            errorPayload?.error || `HTTP ${response.status}`
+          }`
+        );
+      }
+
+      const { content } = (await response.json()) as { content?: string };
+
+      const aiResponseText =
+        typeof content === "string" && content.trim().length > 0
+          ? content.trim()
+          : "I'm sorry, I couldn't generate a response right now. Please try again.";
+
+      const aiResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        text: aiResponseText,
+        isUser: false,
         timestamp: new Date(),
       };
 
-      setMessages((prev) => [...prev, newMessage]);
-      setInputText("");
-      setIsLoading(true);
-
-      // Simulate loading time
-      setTimeout(() => {
-        const aiResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          text: "🚧 This chat feature is currently under construction and will be available soon! We're working hard to bring you an amazing AI fitness assistant. Thank you for your patience!",
-          isUser: false,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, aiResponse]);
-        setIsLoading(false);
-      }, 1500); // 1.5 second delay to simulate loading
+      setMessages((prev) => [...prev, aiResponse]);
+    } catch (error) {
+      console.error("AI chat error:", error);
+      const fallbackResponse: Message = {
+        id: (Date.now() + 2).toString(),
+        text: "I'm having trouble connecting to the AI right now. Please check your connection and try again in a moment.",
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, fallbackResponse]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -228,9 +348,11 @@ export default function ChatScreen() {
 
         {/* Messages */}
         <ScrollView
+          ref={scrollViewRef}
           style={styles.messagesContainer}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.messagesContent}
+          keyboardShouldPersistTaps="handled"
         >
           {messages.map(renderMessage)}
           {isLoading && renderLoadingIndicator()}
@@ -260,11 +382,14 @@ export default function ChatScreen() {
               ]}
               onPress={handleSendMessage}
               disabled={!inputText.trim()}
+              disabled={!inputText.trim() || isLoading}
             >
               <Ionicons
                 name="send"
                 size={20}
-                color={inputText.trim() ? colors.black : colors.text}
+                color={
+                  inputText.trim() && !isLoading ? colors.black : colors.text
+                }
               />
             </TouchableOpacity>
           </View>
