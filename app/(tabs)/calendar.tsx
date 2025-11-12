@@ -856,10 +856,6 @@ export default function CalendarScreen() {
           `You have completed ${completedCount} out of ${totalExercises} exercises. Are you sure you want to finish the workout?`,
           [
             {
-              text: "Cancel",
-              style: "cancel",
-            },
-            {
               text: "Finish Anyway",
               style: "destructive",
               onPress: () => finishWorkoutProcess(),
@@ -1432,8 +1428,7 @@ export default function CalendarScreen() {
             text: t("dashboard.unmark"),
             style: "destructive",
             onPress: () => unmarkCompleted(date),
-          },
-          { text: t("dashboard.cancel"), style: "cancel" },
+          }
         ]
       );
       return;
@@ -3092,10 +3087,6 @@ export default function CalendarScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => {
-                  const cancelText =
-                    t("dashboard.cancel") === "dashboard.cancel"
-                      ? "Cancel"
-                      : t("dashboard.cancel");
                   const deleteText =
                     t("dashboard.delete") === "dashboard.delete"
                       ? "Delete"
@@ -3104,7 +3095,6 @@ export default function CalendarScreen() {
                     "Delete calendar",
                     "This will permanently delete your calendar and progress. Continue?",
                     [
-                      { text: cancelText },
                       {
                         text: deleteText,
                         onPress: async () => {
@@ -4648,7 +4638,9 @@ const styles = StyleSheet.create({
   },
   alertButtons: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "flex-end",
+    alignContent: "flex-end",
     gap: 12,
   },
   alertButton: {
@@ -4657,6 +4649,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     minWidth: 80,
     alignItems: "center",
+    justifyContent: "center",
+    maxWidth: "100%",
   },
   alertButtonText: {
     fontSize: 16,
