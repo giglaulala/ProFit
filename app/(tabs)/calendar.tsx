@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import * as Clipboard from "expo-clipboard";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DeviceEventEmitter,
   Dimensions,
@@ -93,6 +94,8 @@ export default function CalendarScreen() {
     totalMinutes: number;
   }>({ totalCompleted: 0, totalMinutes: 0 });
   const [showGreeting, setShowGreeting] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [hasCopiedShareCode, setHasCopiedShareCode] = useState(false);
 
   const formatStatValue = (
     value: number | null | undefined,
@@ -110,6 +113,9 @@ export default function CalendarScreen() {
   const [calendars, setCalendars] = useState<any[]>([]);
   const scrollRef = useRef<ScrollView>(null);
   const createSectionYRef = useRef(0);
+  const copyFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const router = useRouter();
   // Deprecated: local calendar tracking removed; rely solely on Supabase
 
@@ -198,6 +204,24 @@ export default function CalendarScreen() {
     loadUserCalendars();
     checkCalendarGreeting();
   }, [checkCalendarGreeting, clearLegacyLocalCalendar]);
+
+  useEffect(() => {
+    return () => {
+      if (copyFeedbackTimeoutRef.current) {
+        clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showShareModal && copyFeedbackTimeoutRef.current) {
+      clearTimeout(copyFeedbackTimeoutRef.current);
+      copyFeedbackTimeoutRef.current = null;
+    }
+    if (!showShareModal) {
+      setHasCopiedShareCode(false);
+    }
+  }, [showShareModal]);
 
   // Refresh calendars list when returning to this tab
   useFocusEffect(
@@ -678,6 +702,25 @@ export default function CalendarScreen() {
     setAlertData({ title, message, buttons });
     setShowCustomAlert(true);
   };
+
+  const handleCopyShareCode = useCallback(async () => {
+    if (!userCalendar?.shareCode) {
+      return;
+    }
+    try {
+      await Clipboard.setStringAsync(userCalendar.shareCode);
+      setHasCopiedShareCode(true);
+      if (copyFeedbackTimeoutRef.current) {
+        clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+      copyFeedbackTimeoutRef.current = setTimeout(() => {
+        setHasCopiedShareCode(false);
+        copyFeedbackTimeoutRef.current = null;
+      }, 2000);
+    } catch (error) {
+      console.error("Failed to copy share code:", error);
+    }
+  }, [userCalendar?.shareCode]);
 
   // Get all unique muscles worked in the current workout
   const getAllMusclesWorked = (): string[] => {
@@ -2799,7 +2842,14 @@ export default function CalendarScreen() {
           {userCalendar && (
             <View style={{ marginTop: 12, flexDirection: "row", gap: 8 }}>
               <TouchableOpacity
-                onPress={() => alert(`Share: ${userCalendar.shareCode}`)}
+                onPress={() => {
+                  if (copyFeedbackTimeoutRef.current) {
+                    clearTimeout(copyFeedbackTimeoutRef.current);
+                    copyFeedbackTimeoutRef.current = null;
+                  }
+                  setHasCopiedShareCode(false);
+                  setShowShareModal(true);
+                }}
                 style={{
                   paddingHorizontal: 10,
                   paddingVertical: 6,
@@ -3552,6 +3602,87 @@ export default function CalendarScreen() {
         </View>
       </Modal>
 
+      {/* Share Calendar Modal */}
+      <Modal
+        visible={showShareModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowShareModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {t("dashboard.shareCode")}
+              </Text>
+              <TouchableOpacity onPress={() => setShowShareModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.shareModalBody}>
+              <Text
+                style={[styles.shareModalDescription, { color: colors.text }]}
+              >
+                {t("dashboard.calendarCode")}
+              </Text>
+              <View
+                style={[
+                  styles.shareCodeContainer,
+                  {
+                    backgroundColor: colors.darkGray,
+                    borderColor: colors.lightGray,
+                  },
+                ]}
+              >
+                <Text
+                  selectable
+                  style={[
+                    styles.shareCodeText,
+                    { color: colors.accent || colors.primary },
+                  ]}
+                >
+                  {userCalendar?.shareCode ?? "--"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.copyButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleCopyShareCode}
+                activeOpacity={0.9}
+              >
+                <Ionicons
+                  name={hasCopiedShareCode ? "checkmark" : "copy-outline"}
+                  size={16}
+                  color={colors.black}
+                />
+                <Text
+                  style={[styles.copyButtonText, { color: colors.black }]}
+                >
+                  {hasCopiedShareCode
+                    ? t("dashboard.copied") ?? "Copied!"
+                    : t("dashboard.copyCode") ?? "Copy Code"}
+                </Text>
+              </TouchableOpacity>
+              {hasCopiedShareCode && (
+                <Text
+                  style={[styles.copySuccessText, { color: colors.text }]}
+                >
+                  {t("dashboard.copied") ?? "Copied!"}
+                </Text>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Video Player Modal */}
       <VideoPlayer
         visible={showVideoPlayer}
@@ -4040,6 +4171,42 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     maxHeight: 400,
+  },
+  shareModalBody: {
+    gap: 16,
+  },
+  shareModalDescription: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  shareCodeContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  shareCodeText: {
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 1.5,
+  },
+  copyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  copyButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  copySuccessText: {
+    fontSize: 12,
+    textAlign: "center",
   },
   exerciseCard: {
     padding: 15,
