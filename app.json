@@ -46,7 +46,7 @@
       "eas": {
         "projectId": "145ecb2b-28a2-47b6-96b4-8e9ce22ae041"
       },
-      "apiBaseUrl": "http://localhost:3000",
+      "apiBaseUrl": "https://pro-fit.vercel.app",
       "supabaseUrl": "https://ppkbijuwrmqrrjzmkmpp.supabase.co",
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwa2JpanV3cm1xcnJqem1rbXBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzODQwNTcsImV4cCI6MjA3MTk2MDA1N30.GZ6jSkZUBxeJm_8CfH8putkFDr0zwSQQZunzsj1xFSw"
     }
