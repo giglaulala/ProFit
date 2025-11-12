@@ -86,5 +86,5 @@ create trigger user_achievements_set_updated_at
 > - `first_workout`
 > - `seven_day_challenge`
 > - `thirty_day_challenge`
-***
 
+---
