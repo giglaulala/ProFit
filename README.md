@@ -7,6 +7,21 @@ Add your Supabase credentials in `app.json` under `expo.extra`:
 "supabaseAnonKey": "YOUR_SUPABASE_ANON_KEY"
 ```
 
+### Web confirmation callback
+
+1. In the `web` workspace create `.env.local` (or configure the same env vars in hosting) with:
+
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.ref.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+   ```
+
+2. Deploy the new confirmation handler page exposed at `/confirm`. Supabase uses it when users click the email link.
+3. In Supabase Dashboard → Authentication → URL Configuration set:
+   - `Site URL` (and allowed redirect) to `https://YOUR_DOMAIN/confirm`
+   - or pass `options.emailRedirectTo` to `supabase.auth.signUp` pointing at the same page.
+4. Once the page loads, it reads Supabase’s `token_hash`/`code` params, calls the appropriate `supabase.auth.verifyOtp`/`exchangeCodeForSession`, and shows the user a success or retry message. If you change the URL, update the `Site URL` so Supabase emits the correct link.
+
 Install dependency:
 
 Optional tables for trainee settings:

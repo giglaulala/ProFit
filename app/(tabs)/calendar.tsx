@@ -2507,7 +2507,7 @@ export default function CalendarScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={["right", "left"]}
+      edges={["top", "right", "left"]}
     >
       <ScrollView
         ref={scrollRef}
