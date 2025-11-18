@@ -20,6 +20,11 @@ import ThemedLoader from "../components/ThemedLoader";
 import Colors from "../constants/Colors";
 import { supabase } from "../lib/supabase";
 
+const EMAIL_REGEX =
+  /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+const sanitizeEmail = (value: string) => value.trim().toLowerCase();
+const isValidEmail = (value: string) => EMAIL_REGEX.test(value);
+
 export default function AuthScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
@@ -37,22 +42,29 @@ export default function AuthScreen() {
   const [gender, setGender] = useState<"male" | "female" | null>(null);
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    const sanitizedEmail = sanitizeEmail(email);
+
+    if (!sanitizedEmail || !password) {
       Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    if (!isValidEmail(sanitizedEmail)) {
+      Alert.alert("Error", "Please enter a valid email address");
       return;
     }
 
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: sanitizedEmail,
         password,
       });
       if (error) throw error;
 
       const existingSetupData = await AsyncStorage.getItem("userSetupData");
       const userData = {
-        email,
+        email: sanitizedEmail,
         role: selectedRole,
         isLoggedIn: true,
         loginTime: new Date().toISOString(),
@@ -112,8 +124,15 @@ export default function AuthScreen() {
   };
 
   const handleRegister = async () => {
-    if (!email || !password || !confirmPassword || !selectedRole) {
+    const sanitizedEmail = sanitizeEmail(email);
+
+    if (!sanitizedEmail || !password || !confirmPassword || !selectedRole) {
       Alert.alert("Error", "Please fill in all fields and select a role");
+      return;
+    }
+
+    if (!isValidEmail(sanitizedEmail)) {
+      Alert.alert("Error", "Please enter a valid email address");
       return;
     }
 
@@ -135,13 +154,29 @@ export default function AuthScreen() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: sanitizedEmail,
         password,
         options: {
           // You can add email redirectTo if needed
         },
       });
       if (error) throw error;
+
+      const session = data.session;
+
+      if (!session) {
+        Alert.alert(
+          "Confirm your email",
+          `We sent a confirmation link to ${sanitizedEmail}. Please verify your inbox and then log in to continue.`
+        );
+        // Reset to login mode so user signs in after confirming
+        setIsLogin(true);
+        setPassword("");
+        setConfirmPassword("");
+        setSelectedRole(null);
+        setGender(null);
+        return;
+      }
 
       // If session is available or after getUser, upsert profile
       const userId =
@@ -159,19 +194,21 @@ export default function AuthScreen() {
         );
       }
 
-      const userData = {
-        email,
-        role: selectedRole,
-        isLoggedIn: true,
-        registerTime: new Date().toISOString(),
-        userId: userId,
-      };
-      await AsyncStorage.setItem("userData", JSON.stringify(userData));
+      if (userId) {
+        const userData = {
+          email: sanitizedEmail,
+          role: selectedRole,
+          isLoggedIn: true,
+          registerTime: new Date().toISOString(),
+          userId: userId,
+        };
+        await AsyncStorage.setItem("userData", JSON.stringify(userData));
 
-      if (selectedRole === "trainer") {
-        router.replace("/(tabs)");
-      } else {
-        router.replace("/setup");
+        if (selectedRole === "trainer") {
+          router.replace("/(tabs)");
+        } else {
+          router.replace("/setup");
+        }
       }
     } catch (error: any) {
       Alert.alert("Registration failed", error.message || "Please try again.");

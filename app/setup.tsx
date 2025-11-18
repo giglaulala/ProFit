@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
+  DeviceEventEmitter,
   ScrollView,
   StyleSheet,
   Text,
@@ -249,8 +250,15 @@ const createCalendarFromSetup = async (
       console.log("Calendar verified in Supabase:", verifyData.id);
     }
 
-    const calWithTitle = { ...cal, title: finalTitle };
-    // No local persistence; calendar tab will fetch from Supabase
+    const calWithTitle = {
+      ...cal,
+      title: finalTitle,
+      shareCode: cal.shareCode ?? cal.id,
+      selectedDays: [...selectedDays],
+    };
+
+    await AsyncStorage.setItem("userCalendar", JSON.stringify(calWithTitle));
+    DeviceEventEmitter.emit("userCalendarUpdated");
 
     // Set flag to show greeting in calendar tab
     await AsyncStorage.setItem("showCalendarGreeting", "true");
