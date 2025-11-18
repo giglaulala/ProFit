@@ -2,20 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { VerifyOtpParams } from "@supabase/supabase-js";
+import type { EmailOtpType } from "@supabase/supabase-js";
 
 import { supabase } from "../../lib/supabaseClient";
 
 type StatusState = "loading" | "success" | "error";
 
-const VALID_VERIFY_TYPES: VerifyOtpParams["type"][] = [
+const EMAIL_VERIFY_TYPES: EmailOtpType[] = [
   "signup",
   "magiclink",
   "recovery",
   "invite",
   "email_change",
-  "sms",
 ];
+
+const isEmailVerifyType = (value: string | null | undefined): value is EmailOtpType =>
+  !!value && EMAIL_VERIFY_TYPES.includes(value as EmailOtpType);
 
 const getHashParams = () => {
   if (typeof window === "undefined") return null;
@@ -53,9 +55,8 @@ export default function ConfirmPage() {
       const tokenHash =
         searchParams.get("token_hash") ?? hashParams?.get("token_hash");
       const email = searchParams.get("email") ?? hashParams?.get("email");
-      const typeParam = (searchParams.get("type") ??
-        hashParams?.get("type") ??
-        "signup") as VerifyOtpParams["type"];
+      const typeParam =
+        searchParams.get("type") ?? hashParams?.get("type") ?? "signup";
 
       const accessToken = hashParams?.get("access_token");
       const refreshToken = hashParams?.get("refresh_token");
@@ -71,9 +72,9 @@ export default function ConfirmPage() {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
         } else if (tokenHash && email) {
-          const verifyType = VALID_VERIFY_TYPES.includes(typeParam)
+          const verifyType = isEmailVerifyType(typeParam)
             ? typeParam
-            : "signup";
+            : ("signup" as EmailOtpType);
 
           const { error } = await supabase.auth.verifyOtp({
             email,
