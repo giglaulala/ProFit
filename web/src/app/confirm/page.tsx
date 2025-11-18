@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { EmailOtpType } from "@supabase/supabase-js";
 
@@ -19,6 +19,9 @@ const EMAIL_VERIFY_TYPES: EmailOtpType[] = [
 const isEmailVerifyType = (value: string | null | undefined): value is EmailOtpType =>
   !!value && EMAIL_VERIFY_TYPES.includes(value as EmailOtpType);
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const getHashParams = () => {
   if (typeof window === "undefined") return null;
   const hash = window.location.hash;
@@ -26,7 +29,7 @@ const getHashParams = () => {
   return new URLSearchParams(hash.substring(1));
 };
 
-export default function ConfirmPage() {
+function ConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const paramsKey = useMemo(
@@ -163,6 +166,25 @@ export default function ConfirmPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function ConfirmPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-dvh items-center justify-center bg-background px-6 py-12 text-text">
+          <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-black/50 p-8 text-center shadow-2xl backdrop-blur">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/20 border-t-primary" />
+              <p className="text-base font-medium">Preparing confirmation…</p>
+            </div>
+          </div>
+        </main>
+      }
+    >
+      <ConfirmContent />
+    </Suspense>
   );
 }
 
