@@ -37,8 +37,8 @@ declare namespace __next_route_internal_types__ {
     | `/${SafeSlug<T>}`
     | `/${SafeSlug<T>}/contact`
     | `/${SafeSlug<T>}/download`
-    | `/${SafeSlug<T>}/pricing`
     | `/${SafeSlug<T>}/product`
+    | `/${SafeSlug<T>}/pricing`
 
   type RouteImpl<T> = 
     | StaticRoutes

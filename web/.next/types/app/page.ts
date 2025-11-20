@@ -1,4 +1,4 @@
-// File: /Users/gigakutateladze/projects/ProFit/web/src/app/page.tsx
+// File: /Users/gigakutateladze/Documents/GitHub/ProFit/web/src/app/page.tsx
 import * as entry from '../../../src/app/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

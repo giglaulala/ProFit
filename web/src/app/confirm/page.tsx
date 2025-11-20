@@ -20,7 +20,6 @@ const isEmailVerifyType = (value: string | null | undefined): value is EmailOtpT
   !!value && EMAIL_VERIFY_TYPES.includes(value as EmailOtpType);
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 const getHashParams = () => {
   if (typeof window === "undefined") return null;
