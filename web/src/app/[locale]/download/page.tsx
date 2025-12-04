@@ -44,7 +44,7 @@ export default async function DownloadPage({
               </div>
 
               <a
-                href="ProFit-v1.apkhttps://github.com/giglaulala/ProFit/releases/download/v1.0.1/ProFit-v1.apk"
+                href="https://github.com/giglaulala/ProFit/releases/download/v1.0.1/ProFit-v1.apk"
                 download
                 target="_blank"
                 rel="noopener noreferrer"
